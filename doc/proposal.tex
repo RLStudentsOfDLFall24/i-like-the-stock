@@ -21,17 +21,45 @@
 
 \section*{Team Name}
 
-Creative Team Name
+Alfalfa Hunters
 
 \section*{Project Title}
 
-Applying Modern Supervised Approaches for Algorithmic Trading
+I Like the Stock - Applying Modern Supervised Approaches for Algorithmic Trading
 
-\section*{What you will do}
+\section*{Project Summary}
+The goal of this project is to develop a system that produces actionable trading signals (buy, hold, or sell) for financial instruments based on historical time-series data. By leveraging various deep learning techniques, we aim to accurately predict target trades, facilitating the creation of a profitable investment strategy. This system is of particular interest to users who are looking to optimize their investment portfolios and enhance their financial security.
+
+Existing research is inherently limited, as every published algorithm is a direct loss of alpha for the publisher. We hope to develop an intuitive understanding of the algorithmic trading space, or at least a subset of the vast approaches, in order to understand how machine learning can be applied to a structured space with many competing agents. We’ll apply recent techniques to learn how the state of the art performs
+
+
+\section*{Approach}
+
+\begin{itemize}
+    \item We will attempt 3 different approaches (corresponding to the 3 team members) to understand what is successful - liquid neural networks \cite{hasani_liquid_2020}, spatio-temporal transformers \cite{boyle_spatiotemporal_2023}, and some form of RNN. We will implement the techniques as described in the respective papers \citep{kazemi_time2vec_2019,su_self-attentive_2022}.
+    \item We will do feature engineering, hyperparameter tuning, try to bring in supporting datasets (other financial instruments that may provide predictive signal for our objective)
+    \item We will describe each technical approach in the report, supported by mathematical analysis
+\end{itemize}
 
 \section*{Resources/Related Work \& Papers}
 
+\printbibliography[heading=none]
+
 \section*{Datasets(Provide a link to the dataset)}
+
+\begin{enumerate}
+    \item We will use Yahoo Finance data since it is readily available at the Daily granularity across just about every stock symbol for a ~3 year historical timeframe
+    \item \$SPY buy-and-hold will be our benchmark
+    \item We will focus on 5 high-volatility small cap healthcare stocks:
+    \begin{enumerate}
+        \item \$BIVI - BioVie, Inc.
+        \item \$VTAK - Catheter Precision, Inc.
+        \item \$CYCC - Cyclacel Pharmaceuticals, Inc.
+        \item \$ATNF - 180 Life Sciences Corp.
+        \item \$BIAF - bioAffinity Technologies, Inc.
+    \end{enumerate}
+\end{enumerate}
+
 
 \section*{Group Members}
 
@@ -40,9 +68,5 @@ Applying Modern Supervised Approaches for Algorithmic Trading
 	\item Michael Walker
 	\item Sakae Watanabe
 \end{itemize}
-
-\section{References}
-
-\printbibliography[heading=none]
 
 \end{document}
