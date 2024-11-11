@@ -5,8 +5,8 @@ from abstract_model import AbstractModel
 
 class RNN(AbstractModel):
     def __init__(self):
-        super.__init__()
-        self.rnn = torch.RNN()
+        super().__init__()
+        self.rnn = nn.RNN(10, 20)
 
     def forward(self, data):
         return self.rnn(data)
