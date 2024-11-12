@@ -1,4 +1,3 @@
-import argparse
 import csv
 from datetime import datetime
 
@@ -34,7 +33,8 @@ def process_dat_files(n_cols: int = 7):
                     else:
                         print(f"Skipping line: {line}")
 
-            # Convert to numpy and save as csv
+            # Sort by timestamp ascending and save as csv
+            cleaned.sort(key=lambda x: x[1])
             with open(f"../data/clean/{symbol}.csv", "w", newline='') as f_out:
                 writer = csv.writer(f_out)
                 writer.writerow([
