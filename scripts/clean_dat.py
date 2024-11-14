@@ -49,11 +49,10 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
 
             if len(columns) == n_cols:
                 date_obj = datetime.strptime(columns[0], "%b %d %Y")
-                # Replace the date column with a unix timestamp
+                # Add a unix timestamp
                 columns[0] = date_obj.strftime('%Y-%m-%dT%H:%M:%S')
                 columns.insert(1, int(date_obj.timestamp()))
 
-                # Clean the volume (last) column to be either None or a float
                 if columns[-1] == "-":
                     columns[-1] = 0
                 else:
