@@ -140,6 +140,9 @@ def create_dataset_loaders(
     all_features, all_targets = load_symbol(symbol, root=root)
     print(f"Setting up loaders for {symbol} | Features: {all_features.shape} | Batch Size: {batch_size}")
 
+    # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
+    # Question - do we want windowed indicators to cross over splits?
+
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(
         all_features,
