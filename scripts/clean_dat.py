@@ -9,7 +9,7 @@ def generate_target_labels(prices: np.array, bound: float = 0.005) -> np.array:
     Generate target labels for a given dataset.
 
         1. Compute the next day return for p_t and p_{t+1}
-        2. Assign a label { -1: Sell, 0: Hold, 1: Buy } based on where the return falls
+        2. Assign a label { 0: Sell, 1: Hold, 2: Buy } based on where the return falls
             - We use the bound to determine the label
 
     :param prices: The data we need to generate labels for
@@ -17,9 +17,9 @@ def generate_target_labels(prices: np.array, bound: float = 0.005) -> np.array:
     :return: A numpy array of labels
     """
     daily_rets = (prices[1:] - prices[:-1]) / prices[:-1]
-    labels = np.full_like(prices, fill_value=0, dtype=np.int8)
-    labels[:-1][daily_rets >= bound] = 1
-    labels[:-1][daily_rets <= -bound] = -1
+    labels = np.full_like(prices, fill_value=1, dtype=np.int8)
+    labels[:-1][daily_rets >= bound] = 2
+    labels[:-1][daily_rets <= -bound] = 0
 
     return labels
 
