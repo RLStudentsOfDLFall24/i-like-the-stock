@@ -1,12 +1,13 @@
+import argparse
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
 
-def generate_target_labels(prices: np.array, bound: float = 0.005) -> np.array:
+def create_basic_targets(prices: np.array, bound: float = 0.005, **kwargs) -> np.array:
     """
-    Generate target labels for a given dataset.
+    Create basic target labels for a given dataset based on the daily returns.
 
         1. Compute the next day return for p_t and p_{t+1}
         2. Assign a label { 0: Sell, 1: Hold, 2: Buy } based on where the return falls
@@ -14,14 +15,38 @@ def generate_target_labels(prices: np.array, bound: float = 0.005) -> np.array:
 
     :param prices: The data we need to generate labels for
     :param bound: The threshold for determining the label
+    :param kwargs: Additional arguments for the target generation
     :return: A numpy array of labels
     """
     daily_rets = (prices[1:] - prices[:-1]) / prices[:-1]
     labels = np.full_like(prices, fill_value=1, dtype=np.int8)
     labels[:-1][daily_rets >= bound] = 2
     labels[:-1][daily_rets <= -bound] = 0
-
     return labels
+
+
+def generate_target_labels(prices: np.array, target_type: str = "basic", **kwargs) -> np.array:
+    """
+    Generate target labels for a given dataset.
+
+    :param prices: The data we need to generate labels for
+    :param target_type: The type of target labels to generate
+    :param kwargs: Additional arguments for the target generation
+    :return: A numpy array of one-hot encoded labels
+    """
+    match target_type:
+        case "basic":
+            labels = create_basic_targets(prices, **kwargs)
+        case _:
+            raise ValueError(f"Unknown target type: {target_type}")
+
+    assert labels is not None, "No labels were generated"
+    assert len(prices) == len(labels), "Length of prices and labels must match"
+
+    # One-hot encode the labels
+    target_labels = np.eye(3, dtype=int)[labels]
+
+    return target_labels
 
 
 def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
@@ -81,7 +106,7 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
     return df
 
 
-def process_dat_files(n_cols: int = 7):
+def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
     symbols = [
         "atnf",
         "biaf",
@@ -94,11 +119,14 @@ def process_dat_files(n_cols: int = 7):
         for symbol in symbols:
             cleaned = read_dat_file(symbol, n_cols)
             # Produce the target labels using adj_close
-            cleaned["target"] = generate_target_labels(cleaned["adj_close"].values)
+            target_labels = generate_target_labels(cleaned["adj_close"].values, target_type=target_type)
 
-            with open(f"../data/clean/{symbol}.csv", "w", newline='') as f_out:
-                cleaned.to_csv(f_out, index=False)
+            with open(f"../data/clean/{symbol}.csv", "w", newline='') as data_out:
+                cleaned.to_csv(data_out, index=False)
             print(f"Cleaned {symbol}.dat | Processed {len(cleaned)} rows | Saved to {symbol}.csv\n")
+
+            with open(f"../data/clean/{symbol}_target_{target_type}.csv", "w", newline='') as target_out:
+                np.savetxt(target_out, target_labels, delimiter=",", fmt="%d")
 
     except Exception as e:
         print(f"Error processing dat files: {e}")
@@ -106,7 +134,15 @@ def process_dat_files(n_cols: int = 7):
 
 
 def run():
-    process_dat_files()
+    parser = argparse.ArgumentParser(description="Clean .dat files and generate target labels")
+    parser.add_argument("--n_cols", type=int, default=7, help="The number of columns in the .dat file")
+    parser.add_argument("--target_type", type=str, default="basic", help="The type of target labels to generate")
+    parser.add_argument("--bounds", type=float, default=0.005, help="The threshold for determining the label. Only used for basic target generation")
+    args = parser.parse_args()
+
+    print(f"Processing .dat files with {args.n_cols} columns and generating {args.target_type} target labels")
+    process_dat_files(n_cols=args.n_cols, target_type=args.target_type)
+    print("Processing complete")
 
 
 if __name__ == '__main__':
