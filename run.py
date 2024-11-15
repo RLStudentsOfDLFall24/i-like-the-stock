@@ -10,14 +10,12 @@ MODEL_TYPES = ['rnn','transformer','lnn']
 with open('config.yaml', 'r') as f:
     config_data = yaml.safe_load(f)
 
-for m in config_data['model_types']:
-    if m not in MODEL_TYPES:
-        raise ValueError('Must be one of: ' + str(MODEL_TYPES))
-
 
 models = []
 
 for m in config_data['model_types']:
+    if m not in MODEL_TYPES:
+        raise ValueError('Model type must be one of: ' + str(MODEL_TYPES))
     params = config_data[m]
 
     if m == 'rnn':
