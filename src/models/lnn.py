@@ -4,9 +4,9 @@ from .abstract_model import AbstractModel
 
 
 class LNN(AbstractModel):
-    def __init__(self):
+    def __init__(self, batch_size):
         super().__init__()
-        self.model = nn.RNN(10, 20)
+        self.model = nn.RNN(batch_size, 20)
 
     def forward(self, data):
         return super().forward(data)

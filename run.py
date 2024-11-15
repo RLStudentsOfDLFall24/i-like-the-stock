@@ -3,38 +3,40 @@ from src.models.rnn import RNN
 from src.models.transformer import Transformer
 from src.models.lnn import LNN
 
-import argparse
+import yaml
 
 MODEL_TYPES = ['rnn','transformer','lnn']
 
-parser = argparse.ArgumentParser(prog="SupervisedFinancialModelEvaluator",
-                                 description="Evaluate multiple supervised learning models on stock ticker data",
-                                 )
-parser.add_argument('-m', '--modeltype', help=str(MODEL_TYPES))
-parser.add_argument('-a', '--all', action='store_true')
+with open('config.yaml', 'r') as f:
+    config_data = yaml.safe_load(f)
 
-args = parser.parse_args()
-
-
-if args.all or (not args.all and args.modeltype == None):
-    print('Running all models')
-    all_models = True
-else:
-    if args.modeltype not in MODEL_TYPES:
-        raise ValueError('Must be one of: ' + str(MODEL_TYPES) + ', or all')
+for m in config_data['model_types']:
+    if m not in MODEL_TYPES:
+        raise ValueError('Must be one of: ' + str(MODEL_TYPES))
 
 
 models = []
 
-if args.modeltype == 'rnn' or all_models:
-    models.append(RNN())
-if args.modeltype == 'transformer' or all_models:
-    models.append(Transformer())
-if args.modeltype == 'lnn' or all_models:
-    models.append(LNN())
+for m in config_data['model_types']:
+    params = config_data[m]
+
+    if m == 'rnn':
+        models.append(RNN(params['batch_size']))
+    if m == 'transformer':
+        models.append(Transformer(params['batch_size']))
+    if m == 'lnn':
+        models.append(LNN(params['batch_size']))
 
 
-for m in models:
-    fwd = m(torch.Tensor(10,10))
+if 'train' in config_data['mode']:
+    for m in models:
+        print('Starting training for ', m)
+        #call train fn
+        pass
 
-    print(fwd)
+if 'eval' in config_data['mode']:
+    for m in models:
+        print('Running eval for ', m)
+        fwd = m(torch.Tensor(10,10))
+
+        print(fwd)

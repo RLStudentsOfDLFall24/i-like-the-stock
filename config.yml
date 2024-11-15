@@ -1,0 +1,19 @@
+mode:
+  - train
+  - eval
+
+model_types: 
+  - rnn
+  #- transformer
+  #- lnn
+
+rnn:
+  batch_size: 10
+  num_layers: 1
+
+lnn:
+  batch_size: 10
+
+
+transformer:
+  batch_size: 10
