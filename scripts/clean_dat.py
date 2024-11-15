@@ -43,10 +43,12 @@ def generate_target_labels(prices: np.array, target_type: str = "basic", **kwarg
     assert labels is not None, "No labels were generated"
     assert len(prices) == len(labels), "Length of prices and labels must match"
 
-    # One-hot encode the labels
-    target_labels = np.eye(3, dtype=int)[labels]
+    # Log the distribution of the labels
+    dist = np.unique(labels, return_counts=True)[1] / labels.shape[0]
+    print(f"Labels: Sell {dist[0]:.2f} | Hold {dist[1]:.2f} | Buy {dist[2]:.2f}")
 
-    return target_labels
+    # One-hot encode the labels and return
+    return np.eye(3, dtype=int)[labels]
 
 
 def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
@@ -107,6 +109,15 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
 
 
 def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
+    """
+    Process all the .dat files in the raw directory and save them to the clean directory.
+
+    Run some basic cleaning on the data and generate target labels.
+
+    :param n_cols: The number of columns in the .dat file
+    :param target_type: The type of target labels to generate
+    :param kwargs: Additional arguments for the target generation
+    """
     symbols = [
         "atnf",
         "biaf",
@@ -119,7 +130,11 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
         for symbol in symbols:
             cleaned = read_dat_file(symbol, n_cols)
             # Produce the target labels using adj_close
-            target_labels = generate_target_labels(cleaned["adj_close"].values, target_type=target_type)
+            target_labels = generate_target_labels(
+                cleaned["adj_close"].values,
+                target_type=target_type,
+                **kwargs
+            )
 
             with open(f"../data/clean/{symbol}.csv", "w", newline='') as data_out:
                 cleaned.to_csv(data_out, index=False)
@@ -137,11 +152,13 @@ def run():
     parser = argparse.ArgumentParser(description="Clean .dat files and generate target labels")
     parser.add_argument("--n_cols", type=int, default=7, help="The number of columns in the .dat file")
     parser.add_argument("--target_type", type=str, default="basic", help="The type of target labels to generate")
-    parser.add_argument("--bounds", type=float, default=0.005, help="The threshold for determining the label. Only used for basic target generation")
+    parser.add_argument("--bound", type=float, default=0.005, help="The threshold for determining the label. Only used for basic target generation")
     args = parser.parse_args()
 
-    print(f"Processing .dat files with {args.n_cols} columns and generating {args.target_type} target labels")
-    process_dat_files(n_cols=args.n_cols, target_type=args.target_type)
+    print(f"Processing .dat files {args.n_cols} columns | {args.target_type} target labels")
+    # Print all the args
+    print(args)
+    process_dat_files(**vars(args))
     print("Processing complete")
 
 
