@@ -9,7 +9,9 @@ class AbstractModelMeta(nn.Module, metaclass=ABCMeta):
 
 #define a model template
 class AbstractModel(AbstractModelMeta):
+    model: nn.Module
+
     @abstractmethod
     def forward(self, data):
-        pass
+        return self.model(data)
 
