@@ -3,6 +3,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import yaml
 
 
 def create_basic_targets(prices: np.array, bound: float = 0.005, **kwargs) -> np.array:
@@ -150,15 +151,16 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
 
 def run():
     parser = argparse.ArgumentParser(description="Clean .dat files and generate target labels")
-    parser.add_argument("--n_cols", type=int, default=7, help="The number of columns in the .dat file")
-    parser.add_argument("--target_type", type=str, default="basic", help="The type of target labels to generate")
-    parser.add_argument("--bound", type=float, default=0.005, help="The threshold for determining the label. Only used for basic target generation")
+    parser.add_argument("--config", type=str, default="default",  help="The name of the configuration file to use")
     args = parser.parse_args()
 
-    print(f"Processing .dat files {args.n_cols} columns | {args.target_type} target labels")
-    # Print all the args
-    print(args)
-    process_dat_files(**vars(args))
+    with open(f"{args.config}.yml", "r") as f:
+        config = yaml.safe_load(f)
+
+    print("Loaded Configuration:")
+    print(config)
+
+    process_dat_files(**config)
     print("Processing complete")
 
 
