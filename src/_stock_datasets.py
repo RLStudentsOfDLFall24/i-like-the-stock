@@ -122,25 +122,22 @@ def create_splits(
 
 def create_datasets(
         symbol: str,
-        batch_size: int = 32,
         root: str = "../data/clean",
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
-    Load the data for the given symbol and create DataLoader objects for it.
+    Load the data for the given symbol and create PriceSeriesDataset objects for it.
 
     The test set size is determined by the remaining data after the train and
-    valid sets are created. The DataLoader objects are created with a batch size
-    specified by the batch_size parameter.
+    valid sets are created.
 
     :param symbol: The symbol to load the data for.
-    :param batch_size: The batch size to use for the DataLoader objects, default 32.
     :param root: The root directory to load the data from.
     :param kwargs: Additional keyword arguments to pass to create_splits.
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
     """
     all_features, all_targets = load_symbol(symbol, root=root)
-    print(f"Setting up loaders for {symbol} | Features: {all_features.shape} | Batch Size: {batch_size}")
+    print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
 
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
     # Question - do we want windowed indicators to cross over splits? Yes, we'd have the date irl
@@ -163,7 +160,6 @@ def run():
     train_dataset, valid_dataset, test_dataset = create_datasets(
         "atnf",
         root="../data/clean",
-        batch_size=64,
         seq_len=10,
         train_size=0.75,
         val_size=0.15
