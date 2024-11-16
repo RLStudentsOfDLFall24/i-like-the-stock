@@ -6,10 +6,10 @@
 
 We export the following functions and classes via __init__.py:
     - PriceSeriesDataset
-    - create_dataset_loaders
+    - create_datasets
 
 Example importing from top level:
-    from src import create_dataset_loaders, PriceSeriesDataset
+    from src import create_datasets, PriceSeriesDataset
 """
 import numpy as np
 import torch as th
@@ -66,14 +66,14 @@ class PriceSeriesDataset(Dataset):
 def load_symbol(
         symbol: str,
         root: str = "../data/clean",
-        target_col: int = -1,
+        target_type: str = "basic"
 ) -> tuple[th.Tensor, th.Tensor]:
     """
     Load the data for the given symbol into tensors.
 
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
-    :param target_col: The index of the target column.
+    :param target_type: The type of target to load, default "basic".
     :return: A tuple of torch.Tensors containing the features and targets
     """
     data = np.genfromtxt(
@@ -82,12 +82,14 @@ def load_symbol(
         skip_header=1,
     )
 
-    # Remove the target column from the feature columns
-    feat_idx = np.delete(np.arange(data.shape[1]), target_col)
-
+    targets = np.genfromtxt(
+        f"{root}/{symbol}_target_{target_type}.csv",
+        dtype=int,
+        delimiter=","
+    )
     # Split the features and targets
-    features = th.tensor(data[:, feat_idx])
-    targets = th.tensor(data[:, target_col].astype(int)).unsqueeze(1)
+    features = th.tensor(data)
+    targets = th.tensor(targets)
 
     return features, targets
 
@@ -118,12 +120,12 @@ def create_splits(
     )
 
 
-def create_dataset_loaders(
+def create_datasets(
         symbol: str,
         batch_size: int = 32,
         root: str = "../data/clean",
         **kwargs
-) -> tuple[DataLoader, DataLoader, DataLoader]:
+) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
     Load the data for the given symbol and create DataLoader objects for it.
 
@@ -135,13 +137,13 @@ def create_dataset_loaders(
     :param batch_size: The batch size to use for the DataLoader objects, default 32.
     :param root: The root directory to load the data from.
     :param kwargs: Additional keyword arguments to pass to create_splits.
-    :return: A tuple of DataLoader objects for the train, valid, and test sets.
+    :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
     """
     all_features, all_targets = load_symbol(symbol, root=root)
     print(f"Setting up loaders for {symbol} | Features: {all_features.shape} | Batch Size: {batch_size}")
 
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
-    # Question - do we want windowed indicators to cross over splits?
+    # Question - do we want windowed indicators to cross over splits? Yes, we'd have the date irl
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(
@@ -149,20 +151,16 @@ def create_dataset_loaders(
         all_targets,
         **kwargs
     )
-    print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
-    return (
-        DataLoader(train_data, batch_size=batch_size, shuffle=True),
-        DataLoader(valid_data, batch_size=batch_size, shuffle=False),
-        DataLoader(test_data, batch_size=batch_size, shuffle=False)
-    )
 
+    print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
+    return train_data, valid_data, test_data
 
 def run():
     """
     A simple function to show example usage of the dataset utilities.
     """
     # We specify the symbol and other parameters here
-    train_loader, valid_loader, test_loader = create_dataset_loaders(
+    train_dataset, valid_dataset, test_dataset = create_datasets(
         "atnf",
         root="../data/clean",
         batch_size=64,
@@ -171,7 +169,12 @@ def run():
         val_size=0.15
     )
 
-    # Peek at the train loader
+    # Once we have the datasets, we can create DataLoader objects
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    # valid_loader = DataLoader(valid_dataset, batch_size=64, shuffle=False)
+    # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+
+    # And iterate over the DataLoader objects
     for idx, (x, y) in enumerate(train_loader):
         print(idx, x.shape, y.shape)
         # Print a small slice of each
