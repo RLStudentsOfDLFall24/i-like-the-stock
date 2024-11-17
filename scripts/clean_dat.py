@@ -78,8 +78,7 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
             if len(columns) == n_cols:
                 date_obj = datetime.strptime(columns[0], "%b %d %Y")
                 # Add a unix timestamp
-                columns[0] = date_obj.strftime('%Y-%m-%dT%H:%M:%S')
-                columns.insert(1, int(date_obj.timestamp()))
+                columns[0] = int(date_obj.timestamp())
 
                 if columns[-1] == "-":
                     columns[-1] = 0
@@ -95,12 +94,10 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
     df = pd.DataFrame(
         cleaned,
         columns=[
-            "utc_date", "timestamp", "open", "high", "low", "close",
+            "timestamp", "open", "high", "low", "close",
             "adj_close", "volume"
         ]
     )
-
-    df["utc_date"] = pd.to_datetime(df["utc_date"])
     df["timestamp"] = df["timestamp"].astype(np.int64)
     df["volume"] = df["volume"].astype(np.int64)
     for col in ["open", "high", "low", "close", "adj_close"]:
@@ -151,7 +148,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
 
 def run():
     parser = argparse.ArgumentParser(description="Clean .dat files and generate target labels")
-    parser.add_argument("--config", type=str, default="default",  help="The name of the configuration file to use")
+    parser.add_argument("--config", type=str, default="default", help="The name of the configuration file to use")
     args = parser.parse_args()
 
     with open(f"{args.config}.yml", "r") as f:
