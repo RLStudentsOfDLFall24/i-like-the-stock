@@ -26,12 +26,18 @@ def create_basic_targets(prices: np.array, bound: float = 0.005, **kwargs) -> np
     return labels
 
 
-def generate_target_labels(prices: np.array, target_type: str = "basic", **kwargs) -> np.array:
+def generate_target_labels(
+        prices: np.array,
+        target_type: str = "basic",
+        one_hot: bool = True,
+        **kwargs
+) -> np.array:
     """
     Generate target labels for a given dataset.
 
     :param prices: The data we need to generate labels for
     :param target_type: The type of target labels to generate
+    :param one_hot: Whether to one-hot encode the labels
     :param kwargs: Additional arguments for the target generation
     :return: A numpy array of one-hot encoded labels
     """
@@ -49,7 +55,7 @@ def generate_target_labels(prices: np.array, target_type: str = "basic", **kwarg
     print(f"Labels: Sell {dist[0]:.2f} | Hold {dist[1]:.2f} | Buy {dist[2]:.2f}")
 
     # One-hot encode the labels and return
-    return np.eye(3, dtype=int)[labels]
+    return np.eye(3, dtype=int)[labels] if one_hot else labels
 
 
 def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:

@@ -1,5 +1,6 @@
 import torch
-from torch import nn, functional
+from torch import nn
+
 from src.models.abstract_model import AbstractModel
 
 
@@ -18,8 +19,8 @@ class T2V(nn.Module):
     phase_shifts: nn.Parameter
     """The phase shifts for the encoding."""
 
-    # periodic_activation: nn.Module = torch.sin
-    # """The activation function for the periodic encoding, defaults to sin."""
+    norm_layer: nn.BatchNorm1d | nn.LayerNorm
+    """Batch norm layer for the linear output of the frequencies."""
 
     def __init__(
             self,
@@ -34,6 +35,9 @@ class T2V(nn.Module):
         # Create the frequencies and phase shifts for the encoding
         self.frequencies = nn.Parameter(torch.zeros((input_dim, n_frequencies)))
         self.phase_shifts = nn.Parameter(torch.zeros(n_frequencies))
+        # self.norm_layer = nn.BatchNorm1d(n_frequencies)
+        self.norm_layer = nn.LayerNorm(n_frequencies)
+
         if self.input_dim > 1:
             nn.init.uniform_(self.frequencies, 0, 1)
             nn.init.uniform_(self.phase_shifts, 0, 1)
@@ -48,6 +52,10 @@ class T2V(nn.Module):
 
         # Batch multiply each time feature with the frequencies
         outputs = torch.einsum("ntf,fd->ntd", inputs, self.frequencies)
+        outputs = self.norm_layer(outputs)
+
+        # We can batch norm here I think - or Layer norm w/e makes the most sense
+        # The values are way too large here
         outputs += self.phase_shifts
 
         # We only apply sin to the periodic components, i.e. the last k-1 components
@@ -110,7 +118,6 @@ class STEmbedding(nn.Module):
 
         # 2. We expand the encoded sequence and the data
         n, t, d = inputs.shape
-        # new_dim = 1 + self.t2v.output_dim
         data_expanded = inputs.view(n, t, d, 1)
         encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
 
@@ -160,6 +167,9 @@ class STTransformer(AbstractModel):
     n_frequencies: int
     """The number of frequencies for the time2vec layer."""
 
+    ctx_window: int
+    """The context window for the transformer encoder."""
+
     time_idx: list[int]
     """The index of the time feature in the input sequence, defaults to 0."""
 
@@ -183,6 +193,7 @@ class STTransformer(AbstractModel):
             n_frequencies: int = 32,
             fc_dim: int = 2048,
             fc_dropout: float = 0.1,
+            ctx_window: int = 32,
             **kwargs
     ):
         # Standard nn.Module initialization
@@ -191,7 +202,7 @@ class STTransformer(AbstractModel):
         # Assign the parameters to the class
         self.d_features = d_features
         self.device = device
-        # self.ctx_window = ctx_window
+        self.ctx_window = ctx_window
         self.model_dim = model_dim
         self.num_encoders = num_encoders
         self.num_heads = num_heads
@@ -204,7 +215,12 @@ class STTransformer(AbstractModel):
         self.time_idx = time_idx if time_idx is not None else [0]
 
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
-        self.embedding = STEmbedding(d_features, model_dim, n_frequencies, time_idx)
+        self.embedding = STEmbedding(
+            d_features,
+            model_dim,
+            n_frequencies,
+            time_idx
+        )
 
         # Use the transformer encoder stack to process the embedded data
         self.encoder_stack = nn.TransformerEncoder(
@@ -220,7 +236,7 @@ class STTransformer(AbstractModel):
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            input_size=model_dim,
+            input_size=d_features * model_dim,
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
@@ -240,6 +256,7 @@ class STTransformer(AbstractModel):
         embedded = self.embedding(inputs)
 
         outputs = self.encoder_stack(embedded)
+        outputs = outputs.view(inputs.shape[0], self.ctx_window, -1)
 
         # Return a dummy tensor with the output shapes
         _, (h_t, _) = self.lstm(outputs)
@@ -247,62 +264,3 @@ class STTransformer(AbstractModel):
         # Remember we have weird dims on h_t, so we can squeeze
         outputs = self.linear(h_t[-1].squeeze(0))
         return outputs
-
-
-def run():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    # Seed the random number generator
-    torch.manual_seed(1984)
-    # model = STTransformer(10)
-    # Setup a simple sequence
-    x_dim = 64
-    seq_len = 32
-    k = 64
-    n = 32
-    d_model = 64
-
-    data = torch.randn(n, seq_len, x_dim)
-
-    # embedding = STEmbedding(x_dim, d_model, k)
-    #
-    # out = embedding(data)
-    # print(out)
-
-    model = STTransformer(
-        d_features=x_dim,
-        device=device,
-        num_encoders=4,
-        num_outputs=3,
-        num_lstm_layers=2,
-        lstm_dim=64,
-        time_idx=[0],
-        model_dim=d_model,
-        num_heads=4,
-        ctx_window=10,
-        n_frequencies=k,
-        fc_dim=2048,
-        fc_dropout=0.1
-    )
-
-    out = model(data)
-
-    # Here we would add pooling
-    param_ct = sum(p.numel() for p in model.parameters())
-    for name, param in model.named_parameters():
-        print(f"{name}: {param.numel()} parameters, requires_grad={param.requires_grad}")
-
-    # We don't need a one-hot target after all
-    target = torch.randint(0, 3, (n,)).to(device)
-
-    # TODO, We can use the cross entropy loss
-    criterion = nn.CrossEntropyLoss()
-    loss = criterion(out, target)
-    print(loss)
-
-    print(param_ct)
-
-
-
-if __name__ == '__main__':
-    run()

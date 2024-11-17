@@ -35,7 +35,27 @@ class PriceSeriesDataset(Dataset):
     seq_len: int
     """The sequence length of the dataset windows"""
 
-    def __init__(self, features: th.Tensor, targets: th.Tensor, close_idx: int = 5, seq_len: int = 10):
+    feature_dim: int
+    """The size of a single feature vector in the dataset"""
+
+    t_0: float
+    """The first time value in the dataset"""
+
+    time_idx: th.Tensor
+    """The time index of the dataset"""
+
+    day_seconds: int = 86400
+    """The number of seconds in a day"""
+
+    def __init__(
+            self,
+            features: th.Tensor,
+            targets: th.Tensor,
+            close_idx: int = 5,
+            seq_len: int = 10,
+            expand_date: bool = False,
+            t_0: float = None
+    ):
         """
         Initialize the dataset with the given features and targets.
 
@@ -43,18 +63,39 @@ class PriceSeriesDataset(Dataset):
         :param targets: The targets for the dataset at each time step.
         :param close_idx: The index of the close price column.
         :param seq_len: The sequence length of the dataset windows.
+        :param expand_date: Whether to expand the date feature into multiple columns.
         """
         # Seq len can't be greater than the number of features
         assert seq_len <= features.shape[0], "Sequence length must be less than the number of features"
         assert seq_len > 0, "Sequence length must be greater than 0"
 
-        # We normalize price values by the first value of adj_close (col 5)
-        initial_price = features[0, close_idx]
-        features[:, 1:6] = features[:, 1:6] / initial_price
+        if expand_date:
+            # TODO we need to expand the dates into year, month, day, etc.
+            # OR we just use the date relative to the window i.e. 0, 1, 2, 3, ...
+            pass
 
         # Don't use the last window as it will have no target
-        self.features = features.unfold(0, seq_len, 1)[:-1].transpose(1, 2)
+        self.time_idx = features[:, 0].clone()
+        self.t_0 = t_0 if t_0 is not None else self.time_idx[0].item()
+
+        # We normalize price values by the first value of adj_close (col 5)
+        features[:, 1:6] = features[:, 1:6] / features[0, close_idx]
+
+        # # We subtract the first time value to get a relative time index starting at 0
+        self.features = self.__create_seq_windows(features, seq_len, self.t_0)
+
         self.targets = targets[seq_len:]
+        self.feature_dim = self.features.shape[-1]
+
+    @staticmethod
+    def __create_seq_windows(
+            features: th.Tensor,
+            seq_len: int,
+            time_offset: float
+    ) -> th.Tensor:
+        # We subtract the first time value to get a relative time index starting at 0
+        features[:, 0] = (features[:, 0] - time_offset) / 86400  # seconds in a day
+        return features.unfold(0, seq_len, 1)[:-1].transpose(1, 2)
 
     def __len__(self):
         return self.features.shape[0]
@@ -88,8 +129,8 @@ def load_symbol(
         delimiter=","
     )
     # Split the features and targets
-    features = th.tensor(data)
-    targets = th.tensor(targets)
+    features = th.tensor(data, dtype=th.float32)
+    targets = th.tensor(targets, dtype=th.int64)
 
     return features, targets
 
@@ -99,7 +140,7 @@ def create_splits(
         targets: th.Tensor,
         train_size: float = 0.75,
         val_size: float = 0.15,
-        seq_len: int = 10
+        seq_len: int = 32
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
     Split the data into train/valid/test sets and create DataLoader objects.
@@ -112,11 +153,12 @@ def create_splits(
     x_train, x_valid, x_test = th.split(features, [n_train, n_val, n_test])
     y_train, y_valid, y_test = th.split(targets, [n_train, n_val, n_test])
 
+    t_0 = x_train[0, 0].item()
     # Create the datasets
     return (
         PriceSeriesDataset(x_train, y_train, seq_len=seq_len),
-        PriceSeriesDataset(x_valid, y_valid, seq_len=seq_len),
-        PriceSeriesDataset(x_test, y_test, seq_len=seq_len)
+        PriceSeriesDataset(x_valid, y_valid, seq_len=seq_len, t_0=t_0),
+        PriceSeriesDataset(x_test, y_test, seq_len=seq_len, t_0=t_0)
     )
 
 
@@ -151,6 +193,7 @@ def create_datasets(
 
     print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
     return train_data, valid_data, test_data
+
 
 def run():
     """
