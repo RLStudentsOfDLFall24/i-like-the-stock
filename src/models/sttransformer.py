@@ -133,9 +133,6 @@ class STTransformer(AbstractModel):
     device: torch.device
     """The device to run the model on."""
 
-    ctx_window: int
-    """The length of the input sequences prior to encoding."""
-
     model_dim: int
     """The dimension of the encoder stack."""
 
@@ -154,7 +151,6 @@ class STTransformer(AbstractModel):
     num_outputs: int
     """The number of outputs in the output layer."""
 
-    # TODO still not sure if we'll use LSTM module on top, but adding params for now
     num_lstm_layers: int
     """The number of LSTM layers."""
 
@@ -170,7 +166,7 @@ class STTransformer(AbstractModel):
     embedding: STEmbedding
     """The spatiotemporal embedding layer."""
 
-    encoder_stack: nn.TransformerEncoder
+    encoder_stack: nn.TransformerEncoder | nn.Transformer
     """The transformer encoder stack."""
 
     def __init__(
@@ -181,10 +177,9 @@ class STTransformer(AbstractModel):
             num_outputs: int = 3,
             num_encoders: int = 2,
             num_lstm_layers: int = 1,
-            lstm_dim: int = 32,
+            lstm_dim: int = 64,
             model_dim: int = 64,
             num_heads: int = 2,
-            ctx_window: int = 10,
             n_frequencies: int = 32,
             fc_dim: int = 2048,
             fc_dropout: float = 0.1,
@@ -196,7 +191,7 @@ class STTransformer(AbstractModel):
         # Assign the parameters to the class
         self.d_features = d_features
         self.device = device
-        self.ctx_window = ctx_window
+        # self.ctx_window = ctx_window
         self.model_dim = model_dim
         self.num_encoders = num_encoders
         self.num_heads = num_heads
@@ -211,7 +206,7 @@ class STTransformer(AbstractModel):
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
         self.embedding = STEmbedding(d_features, model_dim, n_frequencies, time_idx)
 
-        # 3. Setup the encoder stack with TransformerEncoderLayer
+        # Use the transformer encoder stack to process the embedded data
         self.encoder_stack = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
                 d_model=model_dim,
@@ -223,9 +218,21 @@ class STTransformer(AbstractModel):
             num_layers=num_encoders
         )
 
-        # TODO 4. Setup the LSTM layer
+        # We leverage an LSTM here to reduce to a single hidden state
+        self.lstm = nn.LSTM(
+            input_size=model_dim,
+            hidden_size=lstm_dim,
+            num_layers=num_lstm_layers,
+            batch_first=True
+        )
 
-        # 5. Setup the output layer
+        # Linear output layers to classify the data
+        self.linear = nn.Sequential(
+            nn.Linear(in_features=lstm_dim, out_features=fc_dim),
+            nn.ReLU(), # We can configure this later
+            nn.Linear(in_features=fc_dim, out_features=num_outputs)
+        )
+
         self.to(device)
 
     def forward(self, data):
@@ -234,10 +241,12 @@ class STTransformer(AbstractModel):
 
         outputs = self.encoder_stack(embedded)
 
-        print("what do we have")
-
         # Return a dummy tensor with the output shapes
-        return torch.zeros(data.shape[0], self.num_outputs)
+        _, (h_t, _) = self.lstm(outputs)
+
+        # Remember we have weird dims on h_t, so we can squeeze
+        outputs = self.linear(h_t[-1].squeeze(0))
+        return outputs
 
 
 def run():
@@ -247,10 +256,10 @@ def run():
     torch.manual_seed(1984)
     # model = STTransformer(10)
     # Setup a simple sequence
-    x_dim = 3
-    seq_len = 10
-    k = 4
-    n = 5
+    x_dim = 64
+    seq_len = 32
+    k = 64
+    n = 32
     d_model = 64
 
     data = torch.randn(n, seq_len, x_dim)
@@ -263,13 +272,13 @@ def run():
     model = STTransformer(
         d_features=x_dim,
         device=device,
-        num_encoders=2,
-        num_outputs=1,
-        num_lstm_layers=1,
-        lstm_dim=32,
+        num_encoders=4,
+        num_outputs=3,
+        num_lstm_layers=2,
+        lstm_dim=64,
         time_idx=[0],
         model_dim=d_model,
-        num_heads=2,
+        num_heads=4,
         ctx_window=10,
         n_frequencies=k,
         fc_dim=2048,
@@ -278,8 +287,21 @@ def run():
 
     out = model(data)
 
-    print('what')
-    pass
+    # Here we would add pooling
+    param_ct = sum(p.numel() for p in model.parameters())
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.numel()} parameters, requires_grad={param.requires_grad}")
+
+    # We don't need a one-hot target after all
+    target = torch.randint(0, 3, (n,)).to(device)
+
+    # TODO, We can use the cross entropy loss
+    criterion = nn.CrossEntropyLoss()
+    loss = criterion(out, target)
+    print(loss)
+
+    print(param_ct)
+
 
 
 if __name__ == '__main__':
