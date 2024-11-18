@@ -163,6 +163,8 @@ def train_sttransformer(
             scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         case "step":
             scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+        case "multi":
+            scheduler = th.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15])
         case _:
             raise ValueError(f"Unknown scheduler: {scheduler}")
 
@@ -216,10 +218,10 @@ def run():
     # We want to run a simple search over the hyperparameters
     ctx_size = [32]
     d_models = [64]
-    l_rates = [5e-6, 3e-6]
+    l_rates = [5e-6]
     fc_dims = [2048]
     fc_dropouts = [0.3]
-    n_freqs = [8, 16, 32]
+    n_freqs = [64]
     num_encoders = [2]
     num_heads = [4]
     num_lstm_layers = [2]
@@ -238,7 +240,7 @@ def run():
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
         {
-            "symbol": "atnf",
+            "symbol": "cycc",
             "seq_len": ctx,
             "batch_size": 32,
             "d_model": d,
@@ -251,9 +253,10 @@ def run():
             "num_lstm_layers": nl,
             "lstm_dim": ld,
             "optimizer": "adam",
-            "scheduler": "plateau",
+            # "scheduler": "plateau",
+            "scheduler": "multi",
             "criterion": "ce",
-            "epochs": 20
+            "epochs": 50
         }
         for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx in product(
             d_models,

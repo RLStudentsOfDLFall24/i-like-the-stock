@@ -42,16 +42,17 @@ class T2V(nn.Module):
             nn.init.uniform_(self.frequencies, 0, 1)
             nn.init.uniform_(self.phase_shifts, 0, 1)
 
-    def forward(self, inputs):
+    def forward(self, inputs, scaler: float = 1e4):
         """
         Create the time2vec encoding for the input data.
 
         :param inputs: A batch of N x T x F_t, sequences of time based features.
+        :param scaler: A scaling factor for the input data.
         :return: A batch of N x T x 2D encoding of the time feature data.
         """
 
         # Batch multiply each time feature with the frequencies
-        outputs = torch.einsum("ntf,fd->ntd", inputs, self.frequencies)
+        outputs = torch.einsum("ntf,fd->ntd", inputs / scaler, self.frequencies)
         outputs = self.norm_layer(outputs)
 
         # We can batch norm here I think - or Layer norm w/e makes the most sense
