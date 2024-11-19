@@ -26,12 +26,18 @@ def create_basic_targets(prices: np.array, bound: float = 0.005, **kwargs) -> np
     return labels
 
 
-def generate_target_labels(prices: np.array, target_type: str = "basic", **kwargs) -> np.array:
+def generate_target_labels(
+        prices: np.array,
+        target_type: str = "basic",
+        one_hot: bool = True,
+        **kwargs
+) -> np.array:
     """
     Generate target labels for a given dataset.
 
     :param prices: The data we need to generate labels for
     :param target_type: The type of target labels to generate
+    :param one_hot: Whether to one-hot encode the labels
     :param kwargs: Additional arguments for the target generation
     :return: A numpy array of one-hot encoded labels
     """
@@ -49,7 +55,7 @@ def generate_target_labels(prices: np.array, target_type: str = "basic", **kwarg
     print(f"Labels: Sell {dist[0]:.2f} | Hold {dist[1]:.2f} | Buy {dist[2]:.2f}")
 
     # One-hot encode the labels and return
-    return np.eye(3, dtype=int)[labels]
+    return np.eye(3, dtype=int)[labels] if one_hot else labels
 
 
 def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
@@ -78,13 +84,14 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
             if len(columns) == n_cols:
                 date_obj = datetime.strptime(columns[0], "%b %d %Y")
                 # Add a unix timestamp
-                columns[0] = date_obj.strftime('%Y-%m-%dT%H:%M:%S')
-                columns.insert(1, int(date_obj.timestamp()))
+                columns[0] = int(date_obj.timestamp())
+                # Prepend year, month, and day columns
+                columns.extend([f"{date_obj.year}", f"{date_obj.month}", f"{date_obj.day}"])
 
-                if columns[-1] == "-":
-                    columns[-1] = 0
+                if columns[6] == "-":
+                    columns[6] = 0
                 else:
-                    columns[-1] = float(columns[-1])
+                    columns[6] = float(columns[6])
 
                 cleaned.append(tuple(columns))
             else:
@@ -95,21 +102,28 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
     df = pd.DataFrame(
         cleaned,
         columns=[
-            "utc_date", "timestamp", "open", "high", "low", "close",
-            "adj_close", "volume"
+            "timestamp", "open", "high", "low", "close",
+            "adj_close","volume",
+            "year", "month", "day"
         ]
     )
-
-    df["utc_date"] = pd.to_datetime(df["utc_date"])
     df["timestamp"] = df["timestamp"].astype(np.int64)
     df["volume"] = df["volume"].astype(np.int64)
+    df["year"] = df["year"].astype(np.int64)
+    df["month"] = df["month"].astype(np.int64)
+    df["day"] = df["day"].astype(np.int64)
     for col in ["open", "high", "low", "close", "adj_close"]:
         df[col] = df[col].astype(np.float64)
 
     return df
 
 
-def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
+def process_dat_files(
+        n_cols: int,
+        target_type: str,
+        one_hot: bool = False,
+        **kwargs
+) -> None:
     """
     Process all the .dat files in the raw directory and save them to the clean directory.
 
@@ -117,6 +131,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
 
     :param n_cols: The number of columns in the .dat file
     :param target_type: The type of target labels to generate
+    :param one_hot: Whether to one-hot encode the labels
     :param kwargs: Additional arguments for the target generation
     """
     symbols = [
@@ -134,6 +149,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
             target_labels = generate_target_labels(
                 cleaned["adj_close"].values,
                 target_type=target_type,
+                one_hot=one_hot,
                 **kwargs
             )
 
@@ -141,7 +157,9 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
                 cleaned.to_csv(data_out, index=False)
             print(f"Cleaned {symbol}.dat | Processed {len(cleaned)} rows | Saved to {symbol}.csv\n")
 
-            with open(f"../data/clean/{symbol}_target_{target_type}.csv", "w", newline='') as target_out:
+            tgt_suffix = f"{target_type}_one_hot" if one_hot else target_type
+
+            with open(f"../data/clean/{symbol}_target_{tgt_suffix}.csv", "w", newline='') as target_out:
                 np.savetxt(target_out, target_labels, delimiter=",", fmt="%d")
 
     except Exception as e:
@@ -151,7 +169,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
 
 def run():
     parser = argparse.ArgumentParser(description="Clean .dat files and generate target labels")
-    parser.add_argument("--config", type=str, default="default",  help="The name of the configuration file to use")
+    parser.add_argument("--config", type=str, default="default", help="The name of the configuration file to use")
     args = parser.parse_args()
 
     with open(f"{args.config}.yml", "r") as f:
