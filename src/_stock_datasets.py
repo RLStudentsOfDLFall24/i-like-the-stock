@@ -39,13 +39,10 @@ class PriceSeriesDataset(Dataset):
     """The size of a single feature vector in the dataset"""
 
     t_0: float
-    """The first time value in the dataset"""
+    """The first time value in the dataset, a UNIX timestamp"""
 
     time_idx: th.Tensor
     """The time index of the dataset"""
-
-    day_seconds: int = 86400
-    """The number of seconds in a day"""
 
     def __init__(
             self,
@@ -93,7 +90,14 @@ class PriceSeriesDataset(Dataset):
             seq_len: int,
             time_offset: float
     ) -> th.Tensor:
-        # We subtract the first time value to get a relative time index starting at 0
+        """
+        Subtracts the first time value to get a relative time index.
+
+        :param features: The features to create windows for.
+        :param seq_len: The sequence length of the windows.
+        :param time_offset: The first time value in the dataset.
+        :return: A tensor of windows of the given sequence
+        """
         features[:, 0] = (features[:, 0] - time_offset) / 86400  # seconds in a day
         return features.unfold(0, seq_len, 1)[:-1].transpose(1, 2)
 
@@ -112,6 +116,8 @@ def load_symbol(
     """
     Load the data for the given symbol into tensors.
 
+    You may wish to only use a subset of the features, in which case you can
+    specify the indices of the features to use.
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
     :param target_type: The type of target to load, default "basic".
@@ -140,10 +146,17 @@ def create_splits(
         targets: th.Tensor,
         train_size: float = 0.75,
         val_size: float = 0.15,
-        seq_len: int = 32
+        seq_len: int = 10,
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
     Split the data into train/valid/test sets and create DataLoader objects.
+
+    :param features: The features to split.
+    :param targets: The targets to split.
+    :param train_size: The size of the training set.
+    :param val_size: The size of the validation set.
+    :param seq_len: The sequence length of the dataset windows.
+    :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
     # Get counts for splits
     n_rows = features.shape[0]
@@ -153,8 +166,9 @@ def create_splits(
     x_train, x_valid, x_test = th.split(features, [n_train, n_val, n_test])
     y_train, y_valid, y_test = th.split(targets, [n_train, n_val, n_test])
 
-    t_0 = x_train[0, 0].item()
     # Create the datasets
+    t_0 = x_train[0, 0].item()
+
     return (
         PriceSeriesDataset(x_train, y_train, seq_len=seq_len),
         PriceSeriesDataset(x_valid, y_valid, seq_len=seq_len, t_0=t_0),
@@ -165,6 +179,7 @@ def create_splits(
 def create_datasets(
         symbol: str,
         root: str = "../data/clean",
+        feature_indices: list[int] = None,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -175,14 +190,21 @@ def create_datasets(
 
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
+    :param feature_indices: The indices of the features to use.
     :param kwargs: Additional keyword arguments to pass to create_splits.
+
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
     """
     all_features, all_targets = load_symbol(symbol, root=root)
     print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
 
+    if feature_indices is None:
+        # Use the default feature indices, the first 7 columns
+        feature_indices = [0, 1, 2, 3, 4, 5, 6]
+
+    all_features = all_features[:, feature_indices]
+
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
-    # Question - do we want windowed indicators to cross over splits? Yes, we'd have the date irl
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(

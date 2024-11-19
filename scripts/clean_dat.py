@@ -85,11 +85,13 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
                 date_obj = datetime.strptime(columns[0], "%b %d %Y")
                 # Add a unix timestamp
                 columns[0] = int(date_obj.timestamp())
+                # Prepend year, month, and day columns
+                columns.extend([f"{date_obj.year}", f"{date_obj.month}", f"{date_obj.day}"])
 
-                if columns[-1] == "-":
-                    columns[-1] = 0
+                if columns[6] == "-":
+                    columns[6] = 0
                 else:
-                    columns[-1] = float(columns[-1])
+                    columns[6] = float(columns[6])
 
                 cleaned.append(tuple(columns))
             else:
@@ -101,18 +103,27 @@ def read_dat_file(symbol: str, n_cols: int) -> pd.DataFrame:
         cleaned,
         columns=[
             "timestamp", "open", "high", "low", "close",
-            "adj_close", "volume"
+            "adj_close","volume",
+            "year", "month", "day"
         ]
     )
     df["timestamp"] = df["timestamp"].astype(np.int64)
     df["volume"] = df["volume"].astype(np.int64)
+    df["year"] = df["year"].astype(np.int64)
+    df["month"] = df["month"].astype(np.int64)
+    df["day"] = df["day"].astype(np.int64)
     for col in ["open", "high", "low", "close", "adj_close"]:
         df[col] = df[col].astype(np.float64)
 
     return df
 
 
-def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
+def process_dat_files(
+        n_cols: int,
+        target_type: str,
+        one_hot: bool = False,
+        **kwargs
+) -> None:
     """
     Process all the .dat files in the raw directory and save them to the clean directory.
 
@@ -120,6 +131,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
 
     :param n_cols: The number of columns in the .dat file
     :param target_type: The type of target labels to generate
+    :param one_hot: Whether to one-hot encode the labels
     :param kwargs: Additional arguments for the target generation
     """
     symbols = [
@@ -137,6 +149,7 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
             target_labels = generate_target_labels(
                 cleaned["adj_close"].values,
                 target_type=target_type,
+                one_hot=one_hot,
                 **kwargs
             )
 
@@ -144,7 +157,9 @@ def process_dat_files(n_cols: int, target_type: str, **kwargs) -> None:
                 cleaned.to_csv(data_out, index=False)
             print(f"Cleaned {symbol}.dat | Processed {len(cleaned)} rows | Saved to {symbol}.csv\n")
 
-            with open(f"../data/clean/{symbol}_target_{target_type}.csv", "w", newline='') as target_out:
+            tgt_suffix = f"{target_type}_one_hot" if one_hot else target_type
+
+            with open(f"../data/clean/{symbol}_target_{tgt_suffix}.csv", "w", newline='') as target_out:
                 np.savetxt(target_out, target_labels, delimiter=",", fmt="%d")
 
     except Exception as e:
