@@ -15,6 +15,8 @@ import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 
+from src.indicators import compute_sma, compute_ema
+
 
 class PriceSeriesDataset(Dataset):
     """
@@ -50,7 +52,8 @@ class PriceSeriesDataset(Dataset):
             targets: th.Tensor,
             close_idx: int = 5,
             seq_len: int = 10,
-            t_0: float = None
+            t_0: float = None,
+            price_features: list[int] = None,
     ):
         """
         Initialize the dataset with the given features and targets.
@@ -59,21 +62,21 @@ class PriceSeriesDataset(Dataset):
         :param targets: The targets for the dataset at each time step.
         :param close_idx: The index of the close price column.
         :param seq_len: The sequence length of the dataset windows.
+        :param t_0: The first time value in the dataset.
+        :param price_features: The indices of the price features to normalize.
         """
         # Seq len can't be greater than the number of features
         assert seq_len <= features.shape[0], "Sequence length must be less than the number of features"
         assert seq_len > 0, "Sequence length must be greater than 0"
 
         # We normalize price values by the first value of adj_close (col 5)
-        initial_price = features[0, close_idx]
-        features[:, 1:6] = features[:, 1:6] / initial_price
+        price_features = price_features if price_features is not None else [1, 2, 3, 4, 5]
+        features[:, price_features] = features[:, price_features] / features[0, close_idx]
 
         # Don't use the last window as it will have no target
         self.time_idx = features[:, 0].clone()
         self.t_0 = t_0 if t_0 is not None else self.time_idx[0].item()
 
-        # We normalize price values by the first value of adj_close (col 5)
-        features[:, 1:6] = features[:, 1:6] / features[0, close_idx]
 
         # # We subtract the first time value to get a relative time index starting at 0
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)
@@ -202,6 +205,13 @@ def create_datasets(
     all_features = all_features[:, feature_indices]
 
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
+    # Add simple moving averages
+    adj_close = all_features[:, 5]
+    windows = [5, 10, 20]
+    sma_features = compute_sma(adj_close, windows=windows)
+    ema_features = compute_ema(adj_close, windows=windows)
+
+    all_features = th.cat([all_features, sma_features, ema_features], dim=1)
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(
