@@ -77,7 +77,6 @@ class PriceSeriesDataset(Dataset):
         self.time_idx = features[:, 0].clone()
         self.t_0 = t_0 if t_0 is not None else self.time_idx[0].item()
 
-
         # # We subtract the first time value to get a relative time index starting at 0
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)
 
@@ -179,7 +178,9 @@ def create_splits(
 def create_datasets(
         symbol: str,
         root: str = "../data/clean",
+        fixed_scaling: list[tuple[int, float]] = None,
         feature_indices: list[int] = None,
+        add_windowed_avgs: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -190,13 +191,20 @@ def create_datasets(
 
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
+    :param fixed_scaling: A list of tuples of feature index and scaling factor.
     :param feature_indices: The indices of the features to use.
+    :param add_windowed_avgs: Whether to add windowed averages to the features.
     :param kwargs: Additional keyword arguments to pass to create_splits.
 
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
     """
     all_features, all_targets = load_symbol(symbol, root=root)
     print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
+
+    # If scaling passed, perform before slicing
+    if fixed_scaling is not None and feature_indices is not None:
+        for idx, scale in fixed_scaling:
+            all_features[:, idx] = all_features[:, idx] / scale
 
     if feature_indices is None:
         # Use the default feature indices, the first 7 columns
@@ -206,12 +214,12 @@ def create_datasets(
 
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
     # Add simple moving averages
-    adj_close = all_features[:, 5]
-    windows = [5, 10, 20]
-    sma_features = compute_sma(adj_close, windows=windows)
-    ema_features = compute_ema(adj_close, windows=windows)
-
-    all_features = th.cat([all_features, sma_features, ema_features], dim=1)
+    if add_windowed_avgs:
+        adj_close = all_features[:, 5]
+        windows = [5, 10, 20]
+        sma_features = compute_sma(adj_close, windows=windows)
+        ema_features = compute_ema(adj_close, windows=windows)
+        all_features = th.cat([all_features, sma_features, ema_features], dim=1)
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(
@@ -234,13 +242,17 @@ def run():
         root="../data/clean",
         seq_len=10,
         train_size=0.75,
-        val_size=0.15
+        val_size=0.15,
+        fixed_scaling = [(7, 3000.), (8, 12.), (9, 31.)],
+        feature_indices=[i for i in range(10)],
+        add_windowed_avgs=True
     )
 
     # Once we have the datasets, we can create DataLoader objects
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     # valid_loader = DataLoader(valid_dataset, batch_size=64, shuffle=False)
     # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+    # Time indices [0, 7, 8, 9], maybe we drop volume?
 
     # And iterate over the DataLoader objects
     for idx, (x, y) in enumerate(train_loader):
