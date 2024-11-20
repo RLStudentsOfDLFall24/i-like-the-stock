@@ -180,7 +180,7 @@ def create_datasets(
         root: str = "../data/clean",
         fixed_scaling: list[tuple[int, float]] = None,
         feature_indices: list[int] = None,
-        add_windowed_avgs: bool = False,
+        add_indicators: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -193,7 +193,7 @@ def create_datasets(
     :param root: The root directory to load the data from.
     :param fixed_scaling: A list of tuples of feature index and scaling factor.
     :param feature_indices: The indices of the features to use.
-    :param add_windowed_avgs: Whether to add windowed averages to the features.
+    :param add_indicators: Whether to add windowed averages to the features.
     :param kwargs: Additional keyword arguments to pass to create_splits.
 
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
@@ -214,7 +214,7 @@ def create_datasets(
 
     # TODO - Augment feature data here i.e. - financial indicators, one-hot encoding, etc.
     # Add simple moving averages
-    if add_windowed_avgs:
+    if add_indicators:
         adj_close = all_features[:, 5]
         windows = [5, 10, 20]
         sma_features = compute_sma(adj_close, windows=windows)
@@ -245,7 +245,7 @@ def run():
         val_size=0.15,
         fixed_scaling = [(7, 3000.), (8, 12.), (9, 31.)],
         feature_indices=[i for i in range(10)],
-        add_windowed_avgs=True
+        add_indicators=True
     )
 
     # Once we have the datasets, we can create DataLoader objects

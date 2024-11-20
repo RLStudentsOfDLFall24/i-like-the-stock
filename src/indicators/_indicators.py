@@ -127,8 +127,10 @@ def compute_momentum(prices: th.Tensor, window: int = 10) -> th.Tensor:
     assert prices.shape[0] > window, "Prices must have more data than the window size"
 
     # Compute momentum
-    momentum = th.full_like(prices, fill_value=th.nan)
-    momentum[window:] = (prices[window:] - prices[:-window]) / prices[:-window]
+    normed_prices = prices / prices[0]
+
+    momentum = th.full_like(normed_prices, fill_value=th.nan)
+    momentum[window:] = (normed_prices[window:] / normed_prices[:-window]) - 1
     return momentum.unsqueeze(1)
 
 def compute_rsi(prices: th.Tensor, window: int = 14) -> th.Tensor:
@@ -157,7 +159,7 @@ def run_example():
     # Run a simple example to test the functions
     # a random tensor of prices for 100 days, all strictly between 0 and 100
     th.manual_seed(42)
-    prices = th.rand(100) * 100
+    prices = th.rand(100)
 
     windows = [10, 20, 30]
     ema = compute_ema(prices, windows)
