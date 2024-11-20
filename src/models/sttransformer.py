@@ -50,9 +50,12 @@ class T2V(nn.Module):
         :param scaler: A scaling factor for the input data.
         :return: A batch of N x T x 2D encoding of the time feature data.
         """
+        # we need to scale the timestamp only for index 0
+        scaled_inputs = inputs.clone()
+        scaled_inputs[:, :, 0] = scaled_inputs[:, :, 0] / scaler
 
         # Batch multiply each time feature with the frequencies
-        outputs = torch.einsum("ntf,fd->ntd", inputs / scaler, self.frequencies)
+        outputs = torch.einsum("ntf,fd->ntd", scaled_inputs, self.frequencies)
         outputs = self.norm_layer(outputs)
 
         # We can batch norm here I think - or Layer norm w/e makes the most sense
@@ -102,7 +105,7 @@ class STEmbedding(nn.Module):
     ):
         super(STEmbedding, self).__init__()
 
-        self.t2v = T2V(input_dim, n_frequencies)
+        self.t2v = T2V(len(time_idx), n_frequencies)
         self.dense_input_size = 1 + n_frequencies
         self.dense = nn.Linear(self.dense_input_size, output_dim)
         self.time_idx = time_idx if time_idx is not None else [0]
@@ -230,7 +233,8 @@ class STTransformer(AbstractModel):
                 nhead=num_heads,
                 dim_feedforward=fc_dim,
                 dropout=fc_dropout,
-                batch_first=True
+                batch_first=True,
+                activation='gelu'
             ),
             num_layers=num_encoders
         )
@@ -246,7 +250,7 @@ class STTransformer(AbstractModel):
         # Linear output layers to classify the data
         self.linear = nn.Sequential(
             nn.Linear(in_features=lstm_dim, out_features=fc_dim),
-            nn.ReLU(), # We can configure this later
+            nn.GELU(),
             nn.Linear(in_features=fc_dim, out_features=num_outputs)
         )
 
