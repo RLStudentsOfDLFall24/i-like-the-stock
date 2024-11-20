@@ -146,6 +146,7 @@ def create_splits(
         train_size: float = 0.75,
         val_size: float = 0.15,
         seq_len: int = 10,
+        **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
     Split the data into train/valid/test sets and create DataLoader objects.
@@ -208,7 +209,7 @@ def create_datasets(
 
     if feature_indices is None:
         # Use the default feature indices, the first 7 columns
-        feature_indices = [0, 1, 2, 3, 4, 5, 6]
+        feature_indices = [0, 1, 2, 3, 4, 5, 6] # Todo set back to default
 
     all_features = all_features[:, feature_indices]
 
@@ -220,6 +221,9 @@ def create_datasets(
         sma_features = compute_sma(adj_close, windows=windows)
         ema_features = compute_ema(adj_close, windows=windows)
         all_features = th.cat([all_features, sma_features, ema_features], dim=1)
+
+    # Drop the volume column, too much noise in column 6
+    all_features = th.cat([all_features[:, :6], all_features[:, 7:]], dim=1)
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(

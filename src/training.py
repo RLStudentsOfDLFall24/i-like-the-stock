@@ -1,16 +1,16 @@
 from itertools import product
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch as th
-from scipy.linalg.tests.test_fblas import accuracy
-from torch.utils.data import DataLoader
-from tqdm import tqdm_notebook, tqdm
-import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models.sttransformer import STTransformer
 from src import create_datasets
+from src.models.abstract_model import AbstractModel
 
 
 def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[float, float]:
@@ -29,12 +29,10 @@ def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[f
 
     # Initialize the loss
     # total_loss = 0.0
-    pb = tqdm(dataloader)
-
     losses = np.zeros(len(dataloader))
     # accuracies = np.zeros(len(dataloader))
 
-    for ix, data in enumerate(pb):
+    for ix, data in enumerate(dataloader):
         x = data[0].to(device)
         y = data[1].to(device)
 
@@ -75,8 +73,7 @@ def evaluate(
     all_preds = []
     all_labels = []
     with th.no_grad():
-        pb = tqdm(dataloader, ascii=True)
-        for ix, data in enumerate(pb):
+        for ix, data in enumerate(dataloader):
             x = data[0].to(device)
             y = data[1].to(device)
 
@@ -88,7 +85,6 @@ def evaluate(
 
             losses[ix] = criterion(logits, y).item()
             accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
-            pb.set_description_str("Batch: %d, Loss: %.4f " % ((ix + 1), losses[ix].item()))
 
     # concat the preds and labels, then send to cpu
     all_preds = th.cat(all_preds).cpu()
@@ -125,7 +121,9 @@ def train_sttransformer(
         optimizer: str = "adam",
         scheduler: str = "plateau",
         criterion: str = "ce",
-        epochs: int = 20
+        epochs: int = 20,
+        model_class: AbstractModel = STTransformer,
+        **kwargs
 ):
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
@@ -216,16 +214,17 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, **kwargs):
 def run():
     th.manual_seed(1984)
     # We want to run a simple search over the hyperparameters
-    ctx_size = [32]
+    ctx_size = [20, 25, 30]
     d_models = [64]
-    l_rates = [5e-6]
-    fc_dims = [2048]
+    batch_sizes = [32]
+    l_rates = [2e-6]
+    fc_dims = [1024]
     fc_dropouts = [0.3]
-    n_freqs = [64]
-    num_encoders = [2]
-    num_heads = [4]
+    n_freqs = [8, 16]
+    num_encoders = [4, 8]
+    num_heads = [4, 8]
     num_lstm_layers = [2]
-    lstm_dim = [256]
+    lstm_dim = [128]
 
     # d_models = [64]
     # l_rates = [1e-6, 1e-5]
@@ -245,6 +244,7 @@ def run():
             "batch_size": 32,
             "d_model": d,
             "lr": lr,
+            "time_idx": [6, 7, 8],
             "fc_dim": fc,
             "fc_dropout": fcd,
             "k": k,
@@ -253,12 +253,11 @@ def run():
             "num_lstm_layers": nl,
             "lstm_dim": ld,
             "optimizer": "adam",
-            # "scheduler": "plateau",
-            "scheduler": "multi",
+            "scheduler": "plateau",
             "criterion": "ce",
-            "epochs": 50
+            "epochs": 60
         }
-        for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx in product(
+        for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx, bs in product(
             d_models,
             l_rates,
             fc_dims,
@@ -268,7 +267,8 @@ def run():
             num_heads,
             num_lstm_layers,
             lstm_dim,
-            ctx_size
+            ctx_size,
+            batch_sizes
         )
     ]
 
@@ -306,7 +306,8 @@ def run():
         plt.plot(train_losses, label='Train Loss')
         plt.plot(v_losses, label='Valid Loss')
         # Set y scale between 0.25 and 1.25
-        # plt.ylim(0.4, 3)
+        plt.xlim(0, config['epochs'])
+        plt.ylim(0.5, 1.5)
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"../figures/trial_{trial}_{config['symbol']}_loss.png")
