@@ -28,6 +28,9 @@ rnn_trainer:
 
 lnn:
   batch_size: 10
+  n_layers: 6
+  hidden_size: 32
+  
 
 lnn_trainer:
   epochs: 10
