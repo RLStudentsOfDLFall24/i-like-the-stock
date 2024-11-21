@@ -17,106 +17,9 @@ import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 
+from _priceseriesdataset import PriceSeriesDataset
 from src.indicators import compute_sma, compute_ema, compute_pct_b, compute_macd, compute_momentum, compute_rsi, \
     compute_relative_volume
-
-
-class PriceSeriesDataset(Dataset):
-    """
-    A simple Dataset class for loading our using the torch APIs
-
-    For simplicity, expects that the features are already segmented into windows
-    of the desired sequence length. This could be adjusted in the future to allow
-    the sequence length to be a parameter of the SequenceDataset class itself
-    to abstract away the windowing process.
-    """
-
-    features: th.Tensor
-    """The features of the dataset"""
-
-    targets: th.Tensor
-    """The targets of the dataset"""
-
-    close_idx: int
-    """The index of the close price column"""
-
-    price_features: list[int]
-    """The indices of the price features to normalize"""
-
-    seq_len: int
-    """The sequence length of the dataset windows"""
-
-    feature_dim: int
-    """The size of a single feature vector in the dataset"""
-
-    t_0: float
-    """The first time value in the dataset, a UNIX timestamp"""
-
-    time_idx: th.Tensor
-    """The time index of the dataset"""
-
-    def __init__(
-            self,
-            features: th.Tensor,
-            targets: th.Tensor,
-            price_features: list[int],
-            close_idx: int = 5,
-            seq_len: int = 10,
-            t_0: float = None,
-    ):
-        """
-        Initialize the dataset with the given features and targets.
-
-        :param features: The time series features for the dataset.
-        :param targets: The targets for the dataset at each time step.
-        :param close_idx: The index of the close price column.
-        :param seq_len: The sequence length of the dataset windows.
-        :param t_0: The first time value in the dataset.
-        :param price_features: The indices of the price features to normalize.
-        """
-        # Seq len can't be greater than the number of features
-        assert seq_len <= features.shape[0], "Sequence length must be less than the number of features"
-        assert seq_len > 0, "Sequence length must be greater than 0"
-        assert price_features is not None, "Price features must be specified"
-
-        # We normalize price values by the first value of adj_close (col 5)
-        self.close_idx = close_idx
-        self.price_features = price_features
-        # price_features = price_features if price_features is not None else [1, 2, 3, 4, 5]
-        features[:, price_features] = features[:, price_features] / features[0, close_idx]
-
-        # Don't use the last window as it will have no target
-        self.time_idx = features[:, 0].clone()
-        self.t_0 = t_0 if t_0 is not None else self.time_idx[0].item()
-
-        # # We subtract the first time value to get a relative time index starting at 0
-        self.features = self.__create_seq_windows(features, seq_len, self.t_0)
-
-        self.targets = targets[seq_len:]
-        self.feature_dim = self.features.shape[-1]
-
-    @staticmethod
-    def __create_seq_windows(
-            features: th.Tensor,
-            seq_len: int,
-            time_offset: float
-    ) -> th.Tensor:
-        """
-        Subtracts the first time value to get a relative time index.
-
-        :param features: The features to create windows for.
-        :param seq_len: The sequence length of the windows.
-        :param time_offset: The first time value in the dataset.
-        :return: A tensor of windows of the given sequence
-        """
-        features[:, 0] = (features[:, 0] - time_offset) / 86400  # seconds in a day
-        return features.unfold(0, seq_len, 1)[:-1].transpose(1, 2)
-
-    def __len__(self):
-        return self.features.shape[0]
-
-    def __getitem__(self, idx):
-        return self.features[idx], self.targets[idx]
 
 
 def load_symbol(
@@ -152,6 +55,32 @@ def load_symbol(
     return features, targets
 
 
+def create_price_series(
+        features: th.Tensor,
+        targets: th.Tensor,
+        seq_len: int = 10,
+        close_idx: int = 5,
+        price_features: list[int] = None,
+        t_0: float = None,
+) -> PriceSeriesDataset:
+    """
+    Create a PriceSeriesDataset object from the given data.
+
+    :return: A PriceSeriesDataset object for the given data.
+    """
+    # Normalize the price features by the first value of the close price
+    features[:, price_features] = features[:, price_features] / features[0, close_idx]
+
+    return PriceSeriesDataset(
+        features=features,
+        targets=targets,
+        price_features=price_features,
+        close_idx=close_idx,
+        seq_len=seq_len,
+        t_0=t_0
+    )
+
+
 def create_splits(
         features: th.Tensor,
         targets: th.Tensor,
@@ -161,7 +90,8 @@ def create_splits(
         test_start: str = "2024-04-18 00:00:00",
         test_end: str = "2024-10-18 00:00:00",
         price_features: list[int] = None,
-        **kwargs # Swallow unused arguments
+        ignore_features: list[int] = None,
+        **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
     Split the data into train/valid/test sets and create DataLoader objects.
@@ -174,6 +104,7 @@ def create_splits(
     :param test_start: The start date for the test set.
     :param test_end: The end date for the test set.
     :param price_features: The indices of the price features to normalize.
+    :param ignore_features: The indices of the features to ignore.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
     # Convert dates to timestamps for slicing
@@ -196,19 +127,34 @@ def create_splits(
     t_0 = x_train[0, 0].item()
     price_features = [1, 2, 3, 4, 5] if price_features is None else price_features
 
-    return (
-        PriceSeriesDataset(x_train, y_train, seq_len=seq_len, price_features=price_features),
-        PriceSeriesDataset(x_valid, y_valid, seq_len=seq_len, t_0=t_0, price_features=price_features),
-        PriceSeriesDataset(x_test, y_test, seq_len=seq_len, t_0=t_0, price_features=price_features)
+    train_set = create_price_series(
+        x_train,
+        y_train,
+        seq_len=seq_len,
+        price_features=price_features
     )
+    valid_set = create_price_series(
+        x_valid,
+        y_valid,
+        seq_len=seq_len,
+        t_0=t_0,
+        price_features=price_features
+    )
+    test_set = create_price_series(
+        x_test,
+        y_test,
+        seq_len=seq_len,
+        t_0=t_0,
+        price_features=price_features
+    )
+
+    return train_set, valid_set, test_set
 
 
 def create_datasets(
         symbol: str,
         root: str = "../data/clean",
         fixed_scaling: list[tuple[int, float]] = None,
-        feature_indices: list[int] = None,
-        add_indicators: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -220,12 +166,12 @@ def create_datasets(
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
     :param fixed_scaling: A list of tuples of feature index and scaling factor.
-    :param feature_indices: The indices of the features to use.
-    :param add_indicators: Whether to add windowed averages to the features.
     :param kwargs: Additional keyword arguments to pass to create_splits.
 
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
     """
+    # Use default time and price features, we'll proxy volume via r_vol
+    feature_indices = [0, 1, 2, 3, 4, 5, 7, 8, 9]
     all_features, all_targets = load_symbol(symbol, root=root)
     print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
 
@@ -234,41 +180,37 @@ def create_datasets(
         for idx, scale in fixed_scaling:
             all_features[:, idx] = all_features[:, idx] / scale
 
-    if feature_indices is None:
-        # Use the default feature indices, the first 7 columns
-        feature_indices = [0, 1, 2, 3, 4, 5, 6]
+    adj_close = all_features[:, 5]
+    ma_windows = [10, 20, 30]
 
+    # Compute the relative volume before we drop it
+    r_vols = compute_relative_volume(all_features[:, 6], windows=ma_windows)  # Volume is index 6
+
+    # Add indicators, we add 11 in total
+    sma_features = compute_sma(adj_close, windows=ma_windows)
+    ema_features = compute_ema(adj_close, windows=ma_windows)
+    pct_b = compute_pct_b(adj_close)
+    macd_h = compute_macd(adj_close)
+    momentum = compute_momentum(adj_close)
+    rsi = compute_rsi(adj_close)
+
+    # Count the default features without volume
     all_features = all_features[:, feature_indices]
-
     n_features = all_features.shape[1]
-    if add_indicators:
-        adj_close = all_features[:, 5]
-        ma_windows = [5, 10, 20]
+    all_features = th.cat([
+        all_features,
+        sma_features,
+        ema_features,
+        pct_b,
+        macd_h,
+        momentum,
+        rsi,
+        r_vols
+    ], dim=1)
 
-        # Various indicators, we add 10 in total n_features -1 + 10 to
-        sma_features = compute_sma(adj_close, windows=ma_windows) # Cols n_features x len(ma_windows)
-        ema_features = compute_ema(adj_close, windows=ma_windows) # Cols
-        pct_b = compute_pct_b(adj_close)
-        macd_h = compute_macd(adj_close)
-        momentum = compute_momentum(adj_close)
-        rsi = compute_rsi(adj_close)
-        r_vols = compute_relative_volume(all_features[:, 6])
-
-        all_features = th.cat([
-            all_features,
-            sma_features,
-            ema_features,
-            pct_b,
-            macd_h,
-            momentum,
-            rsi,
-            r_vols
-        ], dim=1)
-
-        # 1:5 are open/high/low/close, adj_close so we add them and the moving averages
-        price_features = [i+1 for i in range(5)] + [n_features + i for i in range(6)]
-        kwargs["price_features"] = price_features
-
+    # 1:5 are open/high/low/close, adj_close so we add them and the moving averages
+    price_features = [i + 1 for i in range(5)] + [n_features + i for i in range(6)]
+    kwargs["price_features"] = price_features
 
     # Create the splits using the specified sequence length
     train_data, valid_data, test_data = create_splits(
@@ -290,16 +232,13 @@ def run():
         "atnf",
         root="../data/clean",
         seq_len=10,
-        fixed_scaling = [(7, 3000.), (8, 12.), (9, 31.)],
-        feature_indices=[i for i in range(10)],
-        add_indicators=True
+        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
     )
 
     # Once we have the datasets, we can create DataLoader objects
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     # valid_loader = DataLoader(valid_dataset, batch_size=64, shuffle=False)
     # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-    # Time indices [0, 7, 8, 9], maybe we drop volume?
 
     # And iterate over the DataLoader objects
     for idx, (x, y) in enumerate(train_loader):
