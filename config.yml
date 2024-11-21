@@ -31,6 +31,10 @@ lnn:
   n_layers: 6
   hidden_size: 32
   
+<<<<<<< HEAD
+=======
+
+>>>>>>> c40d1e8 (working on the LNN)
 
 lnn_trainer:
   epochs: 10
