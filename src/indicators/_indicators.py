@@ -82,12 +82,13 @@ def compute_macd(
     :return: A tensor of MACD histogram values T x 1
     """
     # Get the 12, 26 day smas and the signal EMA
-    smas = compute_sma(prices, [slow, fast])
-    signal_line = compute_ema(prices, [signal])
+    emas = compute_ema(prices, [slow, fast])
+    macd = emas[:, 1] - emas[:, 0]
 
-    # Compute the histogram values
-    macd_h = smas[:, 1] - smas[:, 0] - signal_line[:, 0]
-    return macd_h.unsqueeze(1)
+    signal = compute_ema(macd, [signal])
+    macd_h = macd.unsqueeze(1) - signal
+
+    return macd_h
 
 
 def compute_pct_b(prices: th.Tensor, sma_size: int = 20) -> th.Tensor:
@@ -126,11 +127,8 @@ def compute_momentum(prices: th.Tensor, window: int = 10) -> th.Tensor:
     assert window > 1, "Window size must be greater than 1"
     assert prices.shape[0] > window, "Prices must have more data than the window size"
 
-    # Compute momentum
-    normed_prices = prices / prices[0]
-
-    momentum = th.full_like(normed_prices, fill_value=th.nan)
-    momentum[window:] = (normed_prices[window:] / normed_prices[:-window]) - 1
+    momentum = th.full_like(prices, fill_value=th.nan)
+    momentum[window:] = (prices[window:] / prices[:-window]) - 1
     return momentum.unsqueeze(1)
 
 def compute_rsi(prices: th.Tensor, window: int = 14) -> th.Tensor:
@@ -141,8 +139,6 @@ def compute_rsi(prices: th.Tensor, window: int = 14) -> th.Tensor:
 
     # We can clip up and down days
     gain_days, loss_days = deltas.clone().clip(min=0), deltas.clone().clip(max=0).abs()
-    # gain_days = gain_days.clip(min=0)
-    # loss_days =loss_days.clip(max=0)
 
     # Compute n-day EMA for gains and losses
     ema_gain = compute_ema(gain_days, [window])
@@ -153,6 +149,21 @@ def compute_rsi(prices: th.Tensor, window: int = 14) -> th.Tensor:
     # We need to cap at 100
     result.clip(max=1)
     return result
+
+def compute_relative_volume(volume: th.Tensor, windows: list[int] = None) -> th.Tensor:
+    """
+    The relative volume at time t is the volume at time t over the windowed
+    average at time t.
+
+    :param volume: The volume tensor to compute the relative volume for
+    :param windows: The window sizes to compute the averages for
+    :return: A tensor of relative volume values T x W
+    """
+    # Compute SMAs for the supplied windows
+    smas = compute_sma(volume, windows)
+    # We expand the volume tensor to match the sma
+    return volume.unsqueeze(1) / smas
+
 
 
 def run_example():
@@ -168,9 +179,10 @@ def run_example():
     macd = compute_macd(prices)
     moment = compute_momentum(prices, window=10)
     rsi = compute_rsi(prices, window=14)
+    rvols = compute_relative_volume(prices, windows)
     # Make sure we can concat all of these features
 
-    features = th.cat([prices.unsqueeze(1), ema, sma, pct_b, macd, moment, rsi], dim=-1)
+    features = th.cat([prices.unsqueeze(1), ema, sma, pct_b, macd, moment, rsi, rvols], dim=-1)
     print(features)
 
 
