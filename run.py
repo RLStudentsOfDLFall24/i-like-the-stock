@@ -29,7 +29,7 @@ def run():
         if m == 'transformer':
             models.append(STTransformer(**params, device=device))
         if m == 'lnn':
-            models.append(LNN(params['batch_size']))
+            models.append(LNN(**params, device=device))
 
     if 'train' in config_data['mode']:
         for m in models:
