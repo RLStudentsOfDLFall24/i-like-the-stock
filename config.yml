@@ -13,6 +13,9 @@ rnn:
 
 lnn:
   batch_size: 10
+  n_layers: 6
+  hidden_size: 32
+  
 
 transformer:
   batch_size: 64
