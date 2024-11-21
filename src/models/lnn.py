@@ -4,10 +4,24 @@ from .abstract_model import AbstractModel
 
 
 class LNN(AbstractModel):
-    def __init__(self, batch_size, input_size, hidden_size, n_layers=6, activation=nn.ReLU):
+    def __init__(self, batch_size, input_size, hidden_size, n_layers=6, activation='relu', optimizer='adam'):
         super(LNN, self).__init__(batch_size=batch_size)
         self.step_size = 1 / n_layers
-        self.activation = activation
+
+        if activation == 'relu':
+            self.activation = nn.ReLU
+        elif activation == 'leaky_relu':
+            self.activation = nn.LeakyReLU
+        elif activation == 'tanh':
+            self.activation = nn.Tanh
+        elif activation == 'sigmoid':
+            self.activation = nn.Sigmoid
+        elif activation == 'elu':
+            self.activation = nn.ELU
+        elif activation == 'gelu':
+            self.activation = nn.GELU
+        else:
+            raise Exception(f'{activation} is not currently supported')
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.n_layers = n_layers
