@@ -19,11 +19,11 @@ for m in config_data['model_types']:
     params = config_data[m]
 
     if m == 'rnn':
-        models.append(RNN(params['batch_size']))
+        models.append(RNN(**params))
     if m == 'transformer':
-        models.append(Transformer(params['batch_size']))
+        models.append(Transformer(**params))
     if m == 'lnn':
-        models.append(LNN(params['batch_size']))
+        models.append(LNN(**params))
 
 
 if 'train' in config_data['mode']:
