@@ -30,21 +30,11 @@ lnn:
   batch_size: 10
   n_layers: 6
   hidden_size: 32
-  
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> b11fa0f (working on the LNN)
-
->>>>>>> c40d1e8 (working on the LNN)
-
-lnn_trainer:
   epochs: 10
   lr: 5.e-6
   optimizer: "adam"
   scheduler: "plateau"
-  criterion: "cb_focal"  # Class Balanced Focal Loss
+  criterion: "ce"  # Class Balanced Focal Loss
 
 transformer:
   batch_size: 64
