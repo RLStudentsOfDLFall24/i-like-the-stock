@@ -7,7 +7,7 @@ import yaml
 
 MODEL_TYPES = ['rnn','transformer','lnn']
 
-with open('config.yaml', 'r') as f:
+with open('config.yml', 'r') as f:
     config_data = yaml.safe_load(f)
 
 
