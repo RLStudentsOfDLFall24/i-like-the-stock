@@ -101,7 +101,7 @@ def evaluate(
     return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
 
 
-def train_sttransformer(
+def train_model(
         x_dim: int,
         seq_len: int,
         train_loader: DataLoader,
@@ -245,7 +245,7 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
     train_label_ct = train_data.target_counts
 
-    return train_sttransformer(
+    return train_model(
         x_dim=train_data[0][0].shape[1],
         seq_len=seq_len,
         train_loader=train_loader,
