@@ -101,7 +101,7 @@ def evaluate(
     return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
 
 
-def train_sttransformer(
+def train_model(
         x_dim: int,
         seq_len: int,
         train_loader: DataLoader,
@@ -202,7 +202,7 @@ def train_sttransformer(
         # Log the progress
         train_losses[epoch] = train_loss_avg
         valid_losses[epoch] = valid_loss_avg
-        # TODO add checkpointing for model parameters
+        # TODO add checkpointing for model parameters, saving the best model, etc.
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
         pb.set_description(
@@ -245,7 +245,7 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
     train_label_ct = train_data.target_counts
 
-    return train_sttransformer(
+    return train_model(
         x_dim=train_data[0][0].shape[1],
         seq_len=seq_len,
         train_loader=train_loader,
