@@ -17,9 +17,29 @@ import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 
-from _priceseriesdataset import PriceSeriesDataset
+from ._priceseriesdataset import PriceSeriesDataset
 from src.indicators import compute_sma, compute_ema, compute_pct_b, compute_macd, compute_momentum, compute_rsi, \
     compute_relative_volume
+
+
+def print_target_distribution(distributions: list[tuple[str, th.Tensor]]):
+    """
+    Print the distributions for datasets.
+
+    :param distributions: A list of tuples containing the dataset name and target label counts.
+    """
+    # Format header
+    header = "| Dataset  | 0: Sell | 1: Hold | 2: Buy |"
+    separator = "|----------|---------|---------|--------|"
+    footer = "|----------|---------|---------|--------|"
+
+    # Format rows
+    rows = [
+        f"| {name:<8} | {dist[0]:7.2f} | {dist[1]:7.2f} | {dist[2]:6.2f} |"
+        for name, dist in distributions
+    ]
+
+    print("\n".join([header, separator] + rows + [footer]))
 
 
 def load_symbol(
@@ -122,8 +142,6 @@ def create_splits(
     x_valid, y_valid = features[valid_mask], targets[valid_mask]
     x_test, y_test = features[test_mask], targets[test_mask]
 
-    # TODO We should log the distribution of the targets here across the splits
-
     t_0 = x_train[0, 0].item()
     price_features = [1, 2, 3, 4, 5] if price_features is None else price_features
 
@@ -146,6 +164,14 @@ def create_splits(
         seq_len=seq_len,
         t_0=t_0,
         price_features=price_features
+    )
+
+    print_target_distribution(
+        [
+            ("Train", train_set.target_dist),
+            ("Valid", valid_set.target_dist),
+            ("Test", test_set.target_dist)
+        ]
     )
 
     return train_set, valid_set, test_set

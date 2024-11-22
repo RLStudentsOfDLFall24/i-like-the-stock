@@ -38,25 +38,30 @@ class T2V(nn.Module):
         # self.norm_layer = nn.BatchNorm1d(n_frequencies)
         self.norm_layer = nn.LayerNorm(n_frequencies)
 
-        if self.input_dim > 1:
-            nn.init.uniform_(self.frequencies, 0, 1)
-            nn.init.uniform_(self.phase_shifts, 0, 1)
+        nn.init.uniform_(self.frequencies, 0, 2 * torch.pi)
+        nn.init.uniform_(self.phase_shifts, 0, 2 * torch.pi)
 
-    def forward(self, inputs, scaler: float = 1e4):
+    def forward(self, inputs, scaler: float = 1e4, log_t2v: bool = False):
         """
         Create the time2vec encoding for the input data.
 
         :param inputs: A batch of N x T x F_t, sequences of time based features.
         :param scaler: A scaling factor for the input data.
+        :param log_t2v: Whether to log the time2vec encoding.
         :return: A batch of N x T x 2D encoding of the time feature data.
         """
         # we need to scale the timestamp only for index 0
+        n, t, f_t = inputs.shape
         scaled_inputs = inputs.clone()
         scaled_inputs[:, :, 0] = scaled_inputs[:, :, 0] / scaler
 
         # Batch multiply each time feature with the frequencies
-        outputs = torch.einsum("ntf,fd->ntd", scaled_inputs, self.frequencies)
-        outputs = self.norm_layer(outputs)
+        # TODO I think this is supposed to be a hadamard product
+        outputs = inputs.view(n, t, f_t, 1) * self.frequencies.view(1, 1, f_t, -1)
+        # outputs = torch.einsum("ntf,fd->ntd", scaled_inputs, self.frequencies)
+
+        # Todo - should this come after the sin?
+        # outputs = self.norm_layer(outputs)
 
         # We can batch norm here I think - or Layer norm w/e makes the most sense
         # The values are way too large here
@@ -64,6 +69,9 @@ class T2V(nn.Module):
 
         # We only apply sin to the periodic components, i.e. the last k-1 components
         outputs = torch.cat([outputs[:, :1], torch.sin(outputs[:, 1:])], dim=1)
+
+        # Here we want to sum the signals across times so we can return N x T x 2D
+        outputs = outputs.sum(dim=2)
         return outputs
 
 
@@ -226,6 +234,8 @@ class STTransformer(AbstractModel):
             time_idx
         )
 
+        self.layer_norm = nn.LayerNorm(model_dim)
+
         # Use the transformer encoder stack to process the embedded data
         self.encoder_stack = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
@@ -247,6 +257,9 @@ class STTransformer(AbstractModel):
             batch_first=True
         )
 
+        # Add a batch norm layer to the LSTM output before the linear layer
+        self.lstm_batch_norm = nn.BatchNorm1d(lstm_dim)
+
         # Linear output layers to classify the data
         self.linear = nn.Sequential(
             nn.Linear(in_features=lstm_dim, out_features=fc_dim),
@@ -259,6 +272,7 @@ class STTransformer(AbstractModel):
     def forward(self, data):
         inputs = data.to(self.device)
         embedded = self.embedding(inputs)
+        embedded = self.layer_norm(embedded)
 
         outputs = self.encoder_stack(embedded)
         outputs = outputs.view(inputs.shape[0], self.ctx_window, -1)
@@ -266,6 +280,8 @@ class STTransformer(AbstractModel):
         # Return a dummy tensor with the output shapes
         _, (h_t, _) = self.lstm(outputs)
 
+        # Apply a batch norm to the LSTM output
+        mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
         # Remember we have weird dims on h_t, so we can squeeze
-        outputs = self.linear(h_t[-1].squeeze(0))
+        outputs = self.linear(mlp_in)
         return outputs
