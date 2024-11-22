@@ -206,10 +206,11 @@ class STTransformer(AbstractModel):
             fc_dim: int = 2048,
             fc_dropout: float = 0.1,
             ctx_window: int = 32,
+            batch_size: int = 32,
             **kwargs
     ):
         # Standard nn.Module initialization
-        super(STTransformer, self).__init__()
+        super(STTransformer, self).__init__(batch_size=batch_size)
 
         # Assign the parameters to the class
         self.d_features = d_features

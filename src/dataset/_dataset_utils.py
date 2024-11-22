@@ -111,6 +111,7 @@ def create_splits(
         test_end: str = "2024-10-18 00:00:00",
         price_features: list[int] = None,
         ignore_features: list[int] = None,
+        log_splits: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -125,6 +126,7 @@ def create_splits(
     :param test_end: The end date for the test set.
     :param price_features: The indices of the price features to normalize.
     :param ignore_features: The indices of the features to ignore.
+    :param log_splits: Whether to log the split counts.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
     # Convert dates to timestamps for slicing
@@ -166,13 +168,14 @@ def create_splits(
         price_features=price_features
     )
 
-    print_target_distribution(
-        [
-            ("Train", train_set.target_dist),
-            ("Valid", valid_set.target_dist),
-            ("Test", test_set.target_dist)
-        ]
-    )
+    if log_splits:
+        print_target_distribution(
+            [
+                ("Train", train_set.target_dist),
+                ("Valid", valid_set.target_dist),
+                ("Test", test_set.target_dist)
+            ]
+        )
 
     return train_set, valid_set, test_set
 
@@ -181,6 +184,7 @@ def create_datasets(
         symbol: str,
         root: str = "../data/clean",
         fixed_scaling: list[tuple[int, float]] = None,
+        log_splits: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -192,6 +196,7 @@ def create_datasets(
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
     :param fixed_scaling: A list of tuples of feature index and scaling factor.
+    :param log_splits: Whether to log the split counts.
     :param kwargs: Additional keyword arguments to pass to create_splits.
 
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
@@ -199,7 +204,8 @@ def create_datasets(
     # Use default time and price features, we'll proxy volume via r_vol
     feature_indices = [0, 1, 2, 3, 4, 5, 7, 8, 9]
     all_features, all_targets = load_symbol(symbol, root=root)
-    print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
+    if log_splits:
+        print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
 
     # If scaling passed, perform before slicing
     if fixed_scaling is not None and feature_indices is not None:
@@ -242,10 +248,12 @@ def create_datasets(
     train_data, valid_data, test_data = create_splits(
         all_features,
         all_targets,
+        log_splits=log_splits,
         **kwargs
     )
 
-    print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
+    if log_splits:
+        print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
     return train_data, valid_data, test_data
 
 

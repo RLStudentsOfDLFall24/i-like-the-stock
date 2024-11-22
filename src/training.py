@@ -63,7 +63,6 @@ def evaluate(
         model,
         dataloader,
         criterion,
-        print_dist: bool = False,
         device: th.device = 'cpu',
 ) -> tuple[float, float, float, float, th.Tensor | None]:
     # Set the model to evaluation
@@ -93,15 +92,13 @@ def evaluate(
     all_preds = th.cat(all_preds).cpu()
     all_labels = th.cat(all_labels).cpu()
 
-    # Log the prediction distribution over labels
-    if print_dist:
-        classes, counts = th.unique(all_preds, return_counts=True)
-        pred_dist = th.zeros(3)
-        pred_dist[classes] = counts / counts.sum() # Are we abusing common class?
-        print_target_distribution([("Preds", pred_dist)])
+    classes, counts = th.unique(all_preds, return_counts=True)
+    pred_dist = th.zeros(3)
+    pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
+
     f1_weighted = f1_score(all_labels, all_preds, average='weighted')
 
-    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist if print_dist else None
+    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
 
 
 def train_sttransformer(
@@ -110,6 +107,8 @@ def train_sttransformer(
         train_loader: DataLoader,
         valid_loader: DataLoader,
         test_loader: DataLoader,
+        # TODO only pass the model, not all the parameters
+        # Begin model specific parameters
         d_model: int = 128,
         num_heads: int = 2,
         num_encoders: int = 8,
@@ -120,11 +119,13 @@ def train_sttransformer(
         fc_dim: int = 512,
         fc_dropout: float = 0.2,
         lr: float = 0.00002,
+        time_idx: list[int] = None,
+        # End model specific parameters
+        # TODO These are top level training parameters, should be moved to a config
         optimizer: str = "adam",
         scheduler: str = "plateau",
         criterion: str = "ce",
         epochs: int = 20,
-        time_idx: list[int] = None,
         train_label_ct: th.Tensor = None,
         model_class: AbstractModel = STTransformer,
         **kwargs
@@ -147,8 +148,6 @@ def train_sttransformer(
         fc_dropout=fc_dropout,
         ctx_window=seq_len
     )
-
-    # EPOCHS = 20
 
     # Set the optimizer
     match optimizer:
@@ -198,14 +197,16 @@ def train_sttransformer(
         scheduler.step(train_loss)
 
         # Evaluate the validation set
-        valid_loss, valid_loss_avg, _, _, _ = evaluate(model, valid_loader, criterion, print_dist=True, device=device)
+        valid_loss, valid_loss_avg, _, _, v_pred_dist = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
         valid_losses[epoch] = valid_loss_avg
-        # TODO add checkpointing
+        # TODO add checkpointing for model parameters
         # Update the progress bar to also show the loss
-        pb.set_description(f"Epoch: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f}")
+        pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
+        pb.set_description(
+            f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
         pb.update(1)
 
     # Evaluate the test set
@@ -213,18 +214,31 @@ def train_sttransformer(
         model,
         test_loader,
         criterion,
-        print_dist=True,
         device=device
     )
 
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
 
-def run_experiment(symbol: str, seq_len: int, batch_size: int, **kwargs):
+def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool = False, **kwargs):
+    """
+    Load the data symbol and create PriceSeriesDatasets.
+
+    The symbol data is loaded into PriceSeriesDatasets, augmented with indicators
+    and then partitioned into train, validation, and test sets. The data are then
+    wrapped in DataLoader objects for use in training and evaluation loops.
+
+    :param symbol: The symbol to load
+    :param seq_len: The sequence length to use
+    :param batch_size: The batch size to use for DataLoader
+    :param log_splits: Whether to log the target distribution
+    :param kwargs: Additional arguments for the model
+    """
     train_data, valid_data, test_data = create_datasets(
         symbol,
         seq_len=seq_len,
-        fixed_scaling = [(7, 3000.), (8, 12.), (9, 31.)],
+        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+        log_splits=log_splits
     )
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
@@ -242,30 +256,28 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, **kwargs):
     )
 
 
-def run():
+def run_grid_search(trial_prefix: str = "default_trial"):
+    """
+    WIP - Will be parameterizing to allow for grid search over a model
+
+    TODO - add model type, default config generator
+    """
     th.manual_seed(1984)
-    # We want to run a simple search over the hyperparameters
+    # TODO Convert this to a method that returns  configurations to iterate over
+    # if args aren't passed, a default will be used so everything should be optional\
+    # requires model type arg to add keys that are specific to the model
+    # TODO step one - refactor the configurations to be passed in as args
     ctx_size = [30]
     d_models = [64]
     batch_sizes = [64]
     l_rates = [5e-6]
     fc_dims = [1024]
     fc_dropouts = [0.3]
-    n_freqs = [4, 8, 16]
+    n_freqs = [48, 16]
     num_encoders = [4]
     num_heads = [4]
     num_lstm_layers = [2]
     lstm_dim = [128]
-
-    # d_models = [64]
-    # l_rates = [1e-6, 1e-5]
-    # fc_dims = [2048]
-    # fc_dropouts = [0.4]
-    # n_freqs = [32]
-    # num_encoders = [2]
-    # num_heads = [2]
-    # num_lstm_layers = [2]
-    # lstm_dim = [256]
 
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
@@ -285,9 +297,9 @@ def run():
             "lstm_dim": ld,
             "optimizer": "adam",
             "scheduler": "plateau",
-            # "criterion": "ce",
-            "criterion": "cb_focal",
-            "epochs": 100
+            # "criterion": "ce", # Cross Entropy
+            "criterion": "cb_focal",  # Class Balanced Focal Loss
+            "epochs": 10
         }
         for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx, bs in product(
             d_models,
@@ -304,7 +316,7 @@ def run():
         )
     ]
 
-    # create a dict that has lists for each hyperparameter
+    # TODO refactor in a nicer way
     results_dict = {
         "trial_id": [],
         "symbol": [],
@@ -323,8 +335,6 @@ def run():
         "scheduler": [],
         "criterion": [],
         "epochs": [],
-        # "train_losses": [],
-        # "valid_losses": [],
         "test_loss": [],
         "test_loss_avg": [],
         "test_acc": [],
@@ -334,28 +344,31 @@ def run():
     }
 
     for trial, config in enumerate(configurations):
-        train_losses, v_losses, test_loss, test_loss_avg, test_acc, f1, test_pred_dist = run_experiment(**config)
-        # abstract this up level
-        # plot train and valid losses on the same graph
-        plt.plot(train_losses, label='Train Loss')
-        plt.plot(v_losses, label='Valid Loss')
+        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
+            (
+            log_splits=trial == 0,
+            **config
+        ))
+
+        print_target_distribution([("Test", tst_pred_dist)])
+
+        plt.plot(tr_loss, label='Train Loss')
+        plt.plot(v_loss, label='Valid Loss')
         # Set y scale between 0.25 and 1.25
         plt.xlim(0, config['epochs'])
         plt.ylim(0.0, 1.5)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"../figures/trial_{trial}_{config['symbol']}_loss.png")
+        plt.savefig(f"../figures/trial_{trial:03}_{config['symbol']}_loss.png")
         plt.close()
 
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
-        # results_dict["train_losses"].append(train_losses)
-        # results_dict["valid_losses"].append(v_losses)
-        results_dict["test_loss"].append(test_loss)
-        results_dict["test_loss_avg"].append(test_loss_avg)
-        results_dict["test_acc"].append(test_acc)
-        results_dict["test_f1"].append(f1)
-        results_dict["test_pred_dist"].append([round(x.item(), 3) for x in test_pred_dist])
+        results_dict["test_loss"].append(tst_loss)
+        results_dict["test_loss_avg"].append(tst_loss_avg)
+        results_dict["test_acc"].append(tst_acc)
+        results_dict["test_f1"].append(tst_f1)
+        results_dict["test_pred_dist"].append([round(x.item(), 3) for x in tst_pred_dist])
 
         # Iterate over the config and append the values to the dictionary
         for key, value in config.items():
@@ -363,8 +376,8 @@ def run():
 
     # Save the results to a CSV file
     results_df = pd.DataFrame(results_dict)
-    results_df.to_csv("../data/st_trial_results.csv", index=False)
+    results_df.to_csv(f"../data/{trial_prefix}_results.csv", index=False)
 
 
 if __name__ == '__main__':
-    run()
+    run_grid_search()

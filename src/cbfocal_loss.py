@@ -46,7 +46,7 @@ class FocalLoss(nn.Module):
         """
 
         numerator = 1 - beta
-        denominator = 1 - th.pow(beta, th.tensor(cls_num_list.detach()))
+        denominator = 1 - th.pow(beta, cls_num_list.clone().detach())
 
         e_n = numerator / (denominator + 1e-8)
         per_cls_weights = (e_n / e_n.sum()) * e_n.shape[0]
