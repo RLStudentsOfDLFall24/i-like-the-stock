@@ -260,6 +260,7 @@ def run_grid_search(trial_prefix: str = "default_trial"):
     """
     WIP - Will be parameterizing to allow for grid search over a model
 
+    Sorry, yes this is a dirty..dirty grid search.
     TODO - add model type, default config generator
     """
     th.manual_seed(1984)
