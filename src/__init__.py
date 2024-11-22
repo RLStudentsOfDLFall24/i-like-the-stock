@@ -1,1 +1,1 @@
-from ._stock_datasets import create_datasets, PriceSeriesDataset
+from .dataset import create_datasets, PriceSeriesDataset
