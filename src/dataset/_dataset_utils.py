@@ -11,7 +11,7 @@ We export the following functions and classes via __init__.py:
 Example importing from top level:
     from src import create_datasets, PriceSeriesDataset
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import torch as th
@@ -100,6 +100,32 @@ def create_price_series(
         t_0=t_0
     )
 
+def get_ts_range(
+        start_date: str,
+        end_date: str,
+        start_offset: int = 0
+                        ) -> tuple[float, float]:
+    """
+    Convert the start and end dates to timestamps and return the range.
+
+    You may optionally provide an end_offset to adjust the starting timestamp.
+    This may be applicable for sequence based tasks where we can assume we have
+    the historical data for t-k for some sequence length k and we're looking to
+    predict t+1.
+
+    Note: Start date offset is relative, therefore you may provide either positive
+    or negative values to adjust the start date.
+
+    :param start_date: The start date for the range, the first date to predict.
+    :param end_date: The end date for the range, the last date to predict.
+    :param start_offset: An optional offset to adjust the start date.
+    :return: A tuple of the start and end timestamps for the range.
+    """
+    start_date = datetime.fromisoformat(start_date) + timedelta(days=start_offset)
+    end_date = datetime.fromisoformat(end_date)
+
+    return start_date.timestamp(), end_date.timestamp()
+
 
 def create_splits(
         features: th.Tensor,
@@ -129,15 +155,16 @@ def create_splits(
     :param log_splits: Whether to log the split counts.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
-    # Convert dates to timestamps for slicing
-    train_start_ts = datetime.fromisoformat(train_start).timestamp()
-    valid_start_ts = datetime.fromisoformat(valid_start).timestamp()
-    test_start_ts = datetime.fromisoformat(test_start).timestamp()
-    test_end_ts = datetime.fromisoformat(test_end).timestamp()
+    # Train data will start without any offset
+    train_start_ts, train_end_ts = get_ts_range(train_start, valid_start)
+
+    # We want to predict 6 month window, so we use t-k as the first date
+    valid_start_ts, valid_end_ts = get_ts_range(valid_start, test_start, start_offset=-seq_len)
+    test_start_ts, test_end_ts = get_ts_range(test_start, test_end, start_offset=-seq_len)
 
     # Split the targets
-    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < valid_start_ts)
-    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < test_start_ts)
+    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < train_end_ts)
+    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < valid_end_ts)
     test_mask = (features[:, 0] >= test_start_ts) & (features[:, 0] <= test_end_ts)
 
     x_train, y_train = features[train_mask], targets[train_mask]
@@ -213,18 +240,18 @@ def create_datasets(
             all_features[:, idx] = all_features[:, idx] / scale
 
     adj_close = all_features[:, 5]
-    ma_windows = [10, 20, 30]
+    ma_windows = [5, 10, 15, 20]
 
     # Compute the relative volume before we drop it
     r_vols = compute_relative_volume(all_features[:, 6], windows=ma_windows)  # Volume is index 6
 
-    # Add indicators, we add 11 in total
+    # Add indicators, we add 11 in total, averages first b/c order matters
     sma_features = compute_sma(adj_close, windows=ma_windows)
     ema_features = compute_ema(adj_close, windows=ma_windows)
     pct_b = compute_pct_b(adj_close)
-    macd_h = compute_macd(adj_close)
-    momentum = compute_momentum(adj_close)
-    rsi = compute_rsi(adj_close)
+    # macd_h = compute_macd(adj_close)
+    momentum = compute_momentum(adj_close, windows=[1, 2, 5, 10])
+    # rsi = compute_rsi(adj_close)
 
     # Count the default features without volume
     all_features = all_features[:, feature_indices]
@@ -234,14 +261,15 @@ def create_datasets(
         sma_features,
         ema_features,
         pct_b,
-        macd_h,
+        # macd_h,
         momentum,
-        rsi,
+        # rsi,
         r_vols
     ], dim=1)
 
     # 1:5 are open/high/low/close, adj_close so we add them and the moving averages
-    price_features = [i + 1 for i in range(5)] + [n_features + i for i in range(6)]
+    n_avg_features = len(ma_windows) * 2  # sma and ema counts
+    price_features = [i + 1 for i in range(5)] + [n_features + i for i in range(n_avg_features)]
     kwargs["price_features"] = price_features
 
     # Create the splits using the specified sequence length

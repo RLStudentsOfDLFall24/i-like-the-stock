@@ -116,20 +116,21 @@ def compute_pct_b(prices: th.Tensor, sma_size: int = 20) -> th.Tensor:
     # We compute %B similar to min-max scaling, subtracting the lower band
     return ((prices - lower_band) / (upper_band - lower_band)).unsqueeze(1)
 
-def compute_momentum(prices: th.Tensor, window: int = 10) -> th.Tensor:
+def compute_momentum(prices: th.Tensor, windows: list[int] = None) -> th.Tensor:
     """
     Compute the momentum indicator for a given set of prices.
 
     :param prices: The prices to compute the indicator for
-    :param window: The window size for the momentum indicator
+    :param windows: The window sizes for the momentum indicator
     :return: A tensor of momentum values T x 1
     """
-    assert window > 1, "Window size must be greater than 1"
-    assert prices.shape[0] > window, "Prices must have more data than the window size"
+    window = windows if windows is not None else [10]
 
-    momentum = th.full_like(prices, fill_value=th.nan)
-    momentum[window:] = (prices[window:] / prices[:-window]) - 1
-    return momentum.unsqueeze(1)
+    momentums = th.full(size=(prices.shape[0], len(window)), fill_value=th.nan)
+
+    for ix, w in enumerate(window):
+        momentums[w:, ix] = (prices[w:] / prices[:-w]) - 1
+    return momentums
 
 def compute_rsi(prices: th.Tensor, window: int = 14) -> th.Tensor:
 
@@ -177,7 +178,7 @@ def run_example():
     sma = compute_sma(prices, windows)
     pct_b = compute_pct_b(prices, sma_size=3)
     macd = compute_macd(prices)
-    moment = compute_momentum(prices, window=10)
+    moment = compute_momentum(prices, windows=[5, 10])
     rsi = compute_rsi(prices, window=14)
     rvols = compute_relative_volume(prices, windows)
     # Make sure we can concat all of these features

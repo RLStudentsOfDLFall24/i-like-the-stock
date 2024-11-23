@@ -104,19 +104,39 @@ class STEmbedding(nn.Module):
     dense: nn.Linear
     """The dense layer for producing embeddings."""
 
+    num_embed: nn.Linear
+    """The linear layer for embedding the numeric features."""
+
+    num_norm: nn.LayerNorm
+    """The normalization layer for the numeric embeddings."""
+
+    sum_embed: bool
+    """Whether to sum the embeddings or concatenate them."""
+
     def __init__(
             self,
             input_dim: int,
             output_dim: int,
             n_frequencies: int,
-            time_idx: list[int] = None
+            time_idx: list[int] = None,
+            sum_embed: bool = True
     ):
         super(STEmbedding, self).__init__()
 
         self.t2v = T2V(len(time_idx), n_frequencies)
-        self.dense_input_size = 1 + n_frequencies
-        self.dense = nn.Linear(self.dense_input_size, output_dim)
         self.time_idx = time_idx if time_idx is not None else [0]
+
+        # We embed the numeric features into the same dimension as the time2vec
+        self.num_embed = nn.Linear(input_dim - len(time_idx), n_frequencies)
+        # We feed the concatenated time and numeric embeddings into the dense layer
+        self.sum_embed = sum_embed
+        self.dense_input_size = n_frequencies if sum_embed else 2 * n_frequencies
+
+        # We squash?
+        self.num_norm = nn.LayerNorm(self.dense_input_size)
+        self.tanh = nn.Tanh()
+
+        self.dense = nn.Linear(self.dense_input_size, output_dim)
 
     def forward(self, inputs):
         """
@@ -128,16 +148,33 @@ class STEmbedding(nn.Module):
         # 1. Encode the time features using time2vec
         encoded = self.t2v(inputs[:, :, self.time_idx])
 
-        # 2. We expand the encoded sequence and the data
-        n, t, d = inputs.shape
-        data_expanded = inputs.view(n, t, d, 1)
-        encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
+        # 1b. Take only the non-time features
+        num_cols = [i for i in range(inputs.shape[-1]) if i not in self.time_idx]
+        num_inputs = inputs[:, :, num_cols]
 
-        # Concat the expanded data and encoded sequence on last dim
-        concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).view(n, -1, self.dense_input_size)
+        # 1c. Apply a linear transformation to the numerics to produce same dimension as time2vec
+        if self.sum_embed:
+            encoded = encoded + self.num_embed(num_inputs)
+        else:
+            encoded = torch.cat([encoded, self.num_embed(num_inputs)], dim=-1)
 
-        # Pass through the dense
-        return self.dense(concatenated)
+        encoded = self.tanh(self.num_norm(encoded))
+
+        # concatenate the time and numeric embeddings
+        # # sum the time and numeric embeddings
+        # encoded = encoded + num_encoded
+
+        # # 2. We expand the encoded sequence and the data
+        # n, t, d = inputs.shape
+        # data_expanded = inputs.view(n, t, d, 1)
+        # encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
+        #
+        # # Concat the expanded data and encoded sequence on last dim
+        # concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).view(n, -1, self.dense_input_size)
+
+        # # Pass through the dense
+        return self.dense(encoded)
+        # return th.cat([encoded, num_encoded], dim=-1)
 
 
 
@@ -167,6 +204,12 @@ class STTransformer(AbstractModel):
     fc_dropout: float
     """The dropout rate for the fully connected layer."""
 
+    mlp_dim: int
+    """The size of the MLP layer."""
+
+    mlp_dropout: float
+    """The dropout rate for the MLP layer."""
+
     num_outputs: int
     """The number of outputs in the output layer."""
 
@@ -188,7 +231,7 @@ class STTransformer(AbstractModel):
     embedding: STEmbedding
     """The spatiotemporal embedding layer."""
 
-    encoder_stack: nn.TransformerEncoder | nn.Transformer
+    xformer_encoder: nn.TransformerEncoder | nn.Transformer
     """The transformer encoder stack."""
 
     def __init__(
@@ -205,8 +248,11 @@ class STTransformer(AbstractModel):
             n_frequencies: int = 32,
             fc_dim: int = 2048,
             fc_dropout: float = 0.1,
+            mlp_dim: int = 2048,
+            mlp_dropout: float = 0.2,
             ctx_window: int = 32,
             batch_size: int = 32,
+            sum_embed: bool = True,
             **kwargs
     ):
         # Standard nn.Module initialization
@@ -232,13 +278,14 @@ class STTransformer(AbstractModel):
             d_features,
             model_dim,
             n_frequencies,
-            time_idx
+            time_idx,
+            sum_embed=sum_embed
         )
 
         self.layer_norm = nn.LayerNorm(model_dim)
 
         # Use the transformer encoder stack to process the embedded data
-        self.encoder_stack = nn.TransformerEncoder(
+        self.xformer_encoder = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
                 d_model=model_dim,
                 nhead=num_heads,
@@ -252,20 +299,20 @@ class STTransformer(AbstractModel):
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            input_size=d_features * model_dim,
+            input_size=model_dim,
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
         )
-
         # Add a batch norm layer to the LSTM output before the linear layer
         self.lstm_batch_norm = nn.BatchNorm1d(lstm_dim)
 
         # Linear output layers to classify the data
         self.linear = nn.Sequential(
-            nn.Linear(in_features=lstm_dim, out_features=fc_dim),
+            nn.Linear(in_features=lstm_dim, out_features=mlp_dim),
+            nn.Dropout(mlp_dropout),
             nn.GELU(),
-            nn.Linear(in_features=fc_dim, out_features=num_outputs)
+            nn.Linear(in_features=mlp_dim, out_features=num_outputs)
         )
 
         self.to(device)
@@ -275,14 +322,20 @@ class STTransformer(AbstractModel):
         embedded = self.embedding(inputs)
         embedded = self.layer_norm(embedded)
 
-        outputs = self.encoder_stack(embedded)
-        outputs = outputs.view(inputs.shape[0], self.ctx_window, -1)
+        outputs = self.xformer_encoder(embedded)
+        # outputs = outputs.view(inputs.shape[0], self.ctx_window, -1)
 
+        # TODO - can we test out cross attention decoding?
         # Return a dummy tensor with the output shapes
         _, (h_t, _) = self.lstm(outputs)
 
+        # TODO - encode all of the hidden states into a context vector
+        # TODO - concatenate the context vector with the final hidden state
+        # TODO - adjust the linear layer to accept the concatenated context vector shape
+
         # Apply a batch norm to the LSTM output
         mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
+
         # Remember we have weird dims on h_t, so we can squeeze
         outputs = self.linear(mlp_in)
         return outputs
