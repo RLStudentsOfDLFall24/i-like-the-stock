@@ -271,18 +271,17 @@ def run_grid_search(trial_prefix: str = "default_trial"):
     ctx_size = [10]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [1e-5]
-    fc_dims = [512, 1024, 2048]
-    mlp_dims = [512, 1024, 2048]
+    l_rates = [4e-5]
+    fc_dims = [512]
+    mlp_dims = [512]
     fc_dropouts = [0.2]
     mlp_dropouts = [0.2]
     n_freqs = [64]
-    num_encoders = [3]
-    num_heads = [2, 4]
-    num_lstm_layers = [1]
-    lstm_dim = [128, 256]
+    num_encoders = [4]
+    num_heads = [4]
+    num_lstm_layers = [2]
+    lstm_dim = [128]
     criteria = ["ce"]
-    sum_embeds = [False]
 
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
@@ -304,12 +303,10 @@ def run_grid_search(trial_prefix: str = "default_trial"):
             "lstm_dim": ld,
             "optimizer": "adam",
             "scheduler": "plateau",
-            "sum_embed": se,
-            # "criterion": "ce", # Cross Entropy
             "criterion": crit,  # Class Balanced Focal Loss
-            "epochs": 50
+            "epochs": 10
         }
-        for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit, se in product(
+        for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,
             l_rates,
             fc_dims,
@@ -324,7 +321,6 @@ def run_grid_search(trial_prefix: str = "default_trial"):
             ctx_size,
             batch_sizes,
             criteria,
-            sum_embeds
         )
     ]
 
@@ -354,8 +350,7 @@ def run_grid_search(trial_prefix: str = "default_trial"):
         "time_idx": [],
         "test_pred_dist": [],
         "mlp_dropout": [],
-        "mlp_dim": [],
-        "sum_embed": []
+        "mlp_dim": []
     }
 
     for trial, config in enumerate(configurations):
