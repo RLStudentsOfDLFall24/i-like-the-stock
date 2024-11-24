@@ -47,6 +47,7 @@ def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[f
         loss = criterion(logits, y)
 
         loss.backward()
+        # Check gradients
         th.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
@@ -152,7 +153,7 @@ def train_model(
     # Set the optimizer
     match optimizer:
         case "adam":
-            optimizer = th.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-8)
+            optimizer = th.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-8, weight_decay=1e-2)
         case "sgd":
             optimizer = th.optim.SGD(model.parameters(), lr=lr)
         case _:
@@ -161,7 +162,7 @@ def train_model(
     # Set the scheduler
     match scheduler:
         case "plateau":
-            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-6)
         case "step":
             scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         case "multi":
@@ -271,10 +272,10 @@ def run_grid_search(trial_prefix: str = "default_trial"):
     ctx_size = [10]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [4e-5]
+    l_rates = [5e-3]
     fc_dims = [512]
     mlp_dims = [512]
-    fc_dropouts = [0.2]
+    fc_dropouts = [0.1]
     mlp_dropouts = [0.2]
     n_freqs = [64]
     num_encoders = [4]
@@ -304,7 +305,7 @@ def run_grid_search(trial_prefix: str = "default_trial"):
             "optimizer": "adam",
             "scheduler": "plateau",
             "criterion": crit,  # Class Balanced Focal Loss
-            "epochs": 10
+            "epochs": 50
         }
         for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,

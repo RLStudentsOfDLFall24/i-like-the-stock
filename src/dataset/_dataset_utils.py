@@ -240,7 +240,7 @@ def create_datasets(
             all_features[:, idx] = all_features[:, idx] / scale
 
     adj_close = all_features[:, 5]
-    ma_windows = [5, 10, 15, 20]
+    ma_windows = [5, 10, 20]
 
     # Compute the relative volume before we drop it
     r_vols = compute_relative_volume(all_features[:, 6], windows=ma_windows)  # Volume is index 6
@@ -250,7 +250,7 @@ def create_datasets(
     ema_features = compute_ema(adj_close, windows=ma_windows)
     pct_b = compute_pct_b(adj_close)
     # macd_h = compute_macd(adj_close)
-    momentum = compute_momentum(adj_close, windows=[1, 2, 5, 10])
+    momentum = compute_momentum(adj_close, windows=[1, 5, 10])
     # rsi = compute_rsi(adj_close)
 
     # Count the default features without volume

@@ -34,12 +34,12 @@ class T2V(nn.Module):
         self.output_dim = n_frequencies
 
         # Create the frequencies and phase shifts for the encoding
-        self.frequencies = nn.Parameter(torch.zeros((input_dim, n_frequencies)))
-        self.phase_shifts = nn.Parameter(torch.zeros(n_frequencies))
+        self.frequencies = nn.Parameter(torch.zeros((input_dim, n_frequencies)), requires_grad=True)
+        self.phase_shifts = nn.Parameter(torch.zeros(n_frequencies), requires_grad=True)
         self.norm_layer = nn.LayerNorm(n_frequencies)
 
-        nn.init.uniform_(self.frequencies, 0, 2 * torch.pi)
-        nn.init.uniform_(self.phase_shifts, 0, 2 * torch.pi)
+        # nn.init.uniform_(self.frequencies, 0, 0.1)
+        # nn.init.uniform_(self.phase_shifts, 0, 0.1)
 
     def forward(self, inputs, scaler: float = 1e4, log_t2v: bool = False):
         """
@@ -51,27 +51,27 @@ class T2V(nn.Module):
         :return: A batch of N x T x 2D encoding of the time feature data.
         """
         # we need to scale the timestamp only for index 0
-        # n, t, f_t = inputs.shape
+        n, t, f_t = inputs.shape
         scaled_inputs = inputs.clone()
-        scaled_inputs[:, :, 0] = scaled_inputs[:, :, 0] / scaler
+        scaled_inputs[:, :, 0] /= scaler
 
         # Batch multiply each time feature with the frequencies
         # TODO I think this is supposed to be a hadamard product
-        # outputs = inputs.view(n, t, f_t, 1) * self.frequencies.view(1, 1, f_t, -1)
-        outputs = torch.einsum("ntf,fd->ntd", scaled_inputs, self.frequencies)
+        outputs = scaled_inputs.reshape(n, t, f_t, 1) * self.frequencies.reshape(1, 1, f_t, -1)
+        # outputs = torch.einsum("ntf,fd->ntd", scaled_inputs, self.frequencies)
 
         # Todo - should this come after the sin?
-        # outputs = self.norm_layer(outputs)
 
         # We can batch norm here I think - or Layer norm w/e makes the most sense
         # The values are way too large here
         outputs += self.phase_shifts
+        outputs = self.norm_layer(outputs)
 
         # We only apply sin to the periodic components, i.e. the last k-1 components
         outputs = torch.cat([outputs[:, :1], torch.sin(outputs[:, 1:])], dim=1)
 
         # Here we want to sum the signals across times so we can return N x T x 2D
-        # outputs = outputs.sum(dim=2) # Only needed if we use individual frequencies
+        outputs = outputs.sum(dim=2) # Only needed if we use individual frequencies
         return outputs
 
 
@@ -138,13 +138,14 @@ class STEmbedding(nn.Module):
         # 1. Encode the time features using time2vec
         encoded = self.t2v(inputs[:, :, self.time_idx])
 
+        # TODO: We have a gradient flow problem
         # 2. We expand the encoded sequence and the data
         n, t, d = inputs.shape
-        data_expanded = inputs.view(n, t, d, 1)
+        data_expanded = inputs.reshape(n, t, d, 1)
         encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
 
         # Concat the expanded data and encoded sequence on last dim
-        concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).view(n, -1, self.dense_input_size)
+        concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).reshape(n, -1, self.dense_input_size)
 
         # Pass through the dense
         return self.dense(concatenated)
@@ -280,9 +281,14 @@ class STTransformer(AbstractModel):
         # Add a batch norm layer to the LSTM output before the linear layer
         self.lstm_batch_norm = nn.BatchNorm1d(lstm_dim)
 
+        # TODO testing the TAL layer, need to parameterize agg_dim
+        self.tal = TemporalAttentionLayer(lstm_dim, 32)
+
+        self.tal_batch_norm = nn.BatchNorm1d(2 * lstm_dim)
+
         # Linear output layers to classify the data
         self.linear = nn.Sequential(
-            nn.Linear(in_features=lstm_dim, out_features=mlp_dim),
+            nn.Linear(in_features=2 * lstm_dim, out_features=mlp_dim),
             nn.Dropout(mlp_dropout),
             nn.GELU(),
             nn.Linear(in_features=mlp_dim, out_features=num_outputs)
@@ -296,18 +302,73 @@ class STTransformer(AbstractModel):
     def forward(self, data):
         inputs = data.to(self.device)
         embedded = self.embedding(inputs)
-        embedded = self.layer_norm(embedded)
+        # TODO put the norm back in if needed
+        # embedded = self.layer_norm(embedded)
 
         outputs = self.xformer_encoder(embedded)
-        outputs = outputs.view(inputs.shape[0], self.ctx_window, -1)
+        outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
 
-        # TODO - Drop in the Temporal Attention Layer
         # Return a dummy tensor with the output shapes
         x, (h_t, _) = self.lstm(outputs)
+        # TODO do we need a norm layer here
+        # TODO - Drop in the Temporal Attention Layer, it takes the hidden states
+        tal = self.tal(x)
 
-        # Apply a batch norm to the LSTM output
-        mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
+        # TODO do we need a norm layer here
+        # # Apply a batch norm to the LSTM output
+        tal = self.tal_batch_norm(tal)
 
         # Remember we have weird dims on h_t, so we can squeeze
-        outputs = self.linear(mlp_in)
+        outputs = self.linear(tal)
         return outputs
+
+
+class TemporalAttentionLayer(nn.Module):
+    """
+    Implementation of a Temporal Attention Layer as first used by Fama & French
+
+    We use the TAL to compress hidden states from  0 to t-1 into a single aggregate
+    state.
+    """
+
+    hidden_dim: int
+    """The dimension of the hidden states."""
+
+    linear1: nn.Module
+    """The first linear layer for the attention layer."""
+
+    # bias_agg: nn.Parameter
+    # """The bias for the aggregate state."""
+
+    u_agg: nn.Parameter
+    """The outer weight for the aggregate state."""
+
+    def __init__(self, hidden_dim: int, agg_dim: int):
+        super(TemporalAttentionLayer, self).__init__()
+
+        self.hidden_dim = hidden_dim
+        self.agg_dim = agg_dim
+
+        self.weight_agg = nn.Linear(hidden_dim, agg_dim)
+        self.u_agg = nn.Parameter(torch.zeros(agg_dim))
+
+        nn.init.uniform_(self.u_agg)
+
+
+    def forward(self, hidden_states):
+        """
+        Compute the aggregate state context vector from the hidden states.
+
+        :param hidden_states: A batch of N x T x D hidden states.
+        :return: A batch of N x (D + agg_dim) context vectors.
+        """
+
+        outputs = self.weight_agg(hidden_states)
+        # outputs = self.batch_norm(outputs)
+        # outputs= torch.batch_norm(outputs)
+        outputs = torch.tanh(outputs)
+        outputs = torch.einsum("ntd,d->nt", outputs, self.u_agg)
+        att_probs = torch.softmax(outputs, dim=1)
+        agg_state = torch.einsum("nt,ntd->nd", att_probs, hidden_states)
+
+        return torch.cat([agg_state, hidden_states[:, -1]], dim=1)
