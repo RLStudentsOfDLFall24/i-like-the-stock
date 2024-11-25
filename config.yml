@@ -2,9 +2,9 @@ mode:
   - train
   - eval
 
-model_types: 
-  - rnn
-  #- transformer
+model_types:
+  #  - rnn
+  - transformer
   #- lnn
 
 rnn:
@@ -14,6 +14,25 @@ rnn:
 lnn:
   batch_size: 10
 
-
 transformer:
-  batch_size: 10
+  batch_size: 64
+  symbol: "atnf" # Move this to a top level config list for iteration
+  seq_len: 30
+  d_model: 64
+  lr: 5e-6
+  time_idx:
+    - 0
+    - 6
+    - 7
+    - 8
+  fc_dim: 1024
+  fc_dropout: 0.3
+  k: 16
+  num_encoders: 4
+  num_heads: 4
+  num_lstm_layers: 2
+  lstm_dim: 128
+  optimizer: "adam"
+  scheduler: "plateau"
+  criterion: "cb_focal"  # Class Balanced Focal Loss
+  epochs: 10

@@ -11,15 +11,58 @@ We export the following functions and classes via __init__.py:
 Example importing from top level:
     from src import create_datasets, PriceSeriesDataset
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 
-from _priceseriesdataset import PriceSeriesDataset
+from ._priceseriesdataset import PriceSeriesDataset
 from src.indicators import compute_sma, compute_ema, compute_pct_b, compute_macd, compute_momentum, compute_rsi, \
     compute_relative_volume
+
+
+def get_ts_range(
+        start_date: str,
+        end_date: str,
+        start_offset: int = 0
+                        ) -> tuple[float, float]:
+    """
+    Convert the start and end dates to timestamps and return the range.
+    You may optionally provide an end_offset to adjust the starting timestamp.
+    This may be applicable for sequence based tasks where we can assume we have
+    the historical data for t-k for some sequence length k and we're looking to
+    predict t+1.
+    Note: Start date offset is relative, therefore you may provide either positive
+    or negative values to adjust the start date.
+    :param start_date: The start date for the range, the first date to predict.
+    :param end_date: The end date for the range, the last date to predict.
+    :param start_offset: An optional offset to adjust the start date.
+    :return: A tuple of the start and end timestamps for the range.
+    """
+    start_date = datetime.fromisoformat(start_date) + timedelta(days=start_offset)
+    end_date = datetime.fromisoformat(end_date)
+
+    return start_date.timestamp(), end_date.timestamp()
+
+def print_target_distribution(distributions: list[tuple[str, th.Tensor]]):
+    """
+    Print the distributions for datasets.
+
+    :param distributions: A list of tuples containing the dataset name and target label counts.
+    """
+    # Format header
+    header = "| Dataset  | 0: Sell | 1: Hold | 2: Buy |"
+    separator = "|----------|---------|---------|--------|"
+    footer = "|----------|---------|---------|--------|"
+
+    # Format rows
+    rows = [
+        f"| {name:<8} | {dist[0]:7.2f} | {dist[1]:7.2f} | {dist[2]:6.2f} |"
+        for name, dist in distributions
+    ]
+
+    print("\n".join([header, separator] + rows + [footer]))
 
 
 def load_symbol(
@@ -91,6 +134,7 @@ def create_splits(
         test_end: str = "2024-10-18 00:00:00",
         price_features: list[int] = None,
         ignore_features: list[int] = None,
+        log_splits: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -105,24 +149,24 @@ def create_splits(
     :param test_end: The end date for the test set.
     :param price_features: The indices of the price features to normalize.
     :param ignore_features: The indices of the features to ignore.
+    :param log_splits: Whether to log the split counts.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
-    # Convert dates to timestamps for slicing
-    train_start_ts = datetime.fromisoformat(train_start).timestamp()
-    valid_start_ts = datetime.fromisoformat(valid_start).timestamp()
-    test_start_ts = datetime.fromisoformat(test_start).timestamp()
-    test_end_ts = datetime.fromisoformat(test_end).timestamp()
+    # Train data will start without any offset
+    train_start_ts, train_end_ts = get_ts_range(train_start, valid_start)
+
+    # We want to predict 6 month window, so we use t-k as the first date
+    valid_start_ts, valid_end_ts = get_ts_range(valid_start, test_start, start_offset=-seq_len)
+    test_start_ts, test_end_ts = get_ts_range(test_start, test_end, start_offset=-seq_len)
 
     # Split the targets
-    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < valid_start_ts)
-    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < test_start_ts)
+    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < train_end_ts)
+    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < valid_end_ts)
     test_mask = (features[:, 0] >= test_start_ts) & (features[:, 0] <= test_end_ts)
 
     x_train, y_train = features[train_mask], targets[train_mask]
     x_valid, y_valid = features[valid_mask], targets[valid_mask]
     x_test, y_test = features[test_mask], targets[test_mask]
-
-    # TODO We should log the distribution of the targets here across the splits
 
     t_0 = x_train[0, 0].item()
     price_features = [1, 2, 3, 4, 5] if price_features is None else price_features
@@ -148,6 +192,15 @@ def create_splits(
         price_features=price_features
     )
 
+    if log_splits:
+        print_target_distribution(
+            [
+                ("Train", train_set.target_dist),
+                ("Valid", valid_set.target_dist),
+                ("Test", test_set.target_dist)
+            ]
+        )
+
     return train_set, valid_set, test_set
 
 
@@ -155,6 +208,7 @@ def create_datasets(
         symbol: str,
         root: str = "../data/clean",
         fixed_scaling: list[tuple[int, float]] = None,
+        log_splits: bool = False,
         **kwargs
 ) -> tuple[PriceSeriesDataset, PriceSeriesDataset, PriceSeriesDataset]:
     """
@@ -166,6 +220,7 @@ def create_datasets(
     :param symbol: The symbol to load the data for.
     :param root: The root directory to load the data from.
     :param fixed_scaling: A list of tuples of feature index and scaling factor.
+    :param log_splits: Whether to log the split counts.
     :param kwargs: Additional keyword arguments to pass to create_splits.
 
     :return: A tuple of PriceSeriesDataset objects for the train, valid, and test sets.
@@ -173,7 +228,8 @@ def create_datasets(
     # Use default time and price features, we'll proxy volume via r_vol
     feature_indices = [0, 1, 2, 3, 4, 5, 7, 8, 9]
     all_features, all_targets = load_symbol(symbol, root=root)
-    print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
+    if log_splits:
+        print(f"Setting up loaders for {symbol} | Features: {all_features.shape}")
 
     # If scaling passed, perform before slicing
     if fixed_scaling is not None and feature_indices is not None:
@@ -216,10 +272,12 @@ def create_datasets(
     train_data, valid_data, test_data = create_splits(
         all_features,
         all_targets,
+        log_splits=log_splits,
         **kwargs
     )
 
-    print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
+    if log_splits:
+        print(f"Split Counts for {symbol} | Train: {len(train_data)} | Valid: {len(valid_data)} | Test: {len(test_data)}")
     return train_data, valid_data, test_data
 
 

@@ -36,6 +36,13 @@ class PriceSeriesDataset(Dataset):
     time_idx: th.Tensor
     """The time index of the dataset"""
 
+    target_dist: th.Tensor
+    """The distribution of the target labels"""
+
+    target_counts: th.Tensor
+    """The counts of each target label in the dataset"""
+
+
     def __init__(
             self,
             features: th.Tensor,
@@ -61,6 +68,9 @@ class PriceSeriesDataset(Dataset):
         assert price_features is not None, "Price features must be specified"
 
         self.close_idx = close_idx
+
+        # TODO save the actual prediction time index, not the first time index
+        # TODO we want the time idx to represent the dates for which we're predicting
         self.time_idx = features[:, 0].clone()
 
         # Don't use the last window as it will have no target
@@ -70,6 +80,10 @@ class PriceSeriesDataset(Dataset):
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)
         self.targets = targets[seq_len:]
         self.feature_dim = self.features.shape[-1]
+
+        _, target_counts = th.unique(targets, return_counts=True)
+        self.target_dist = target_counts / target_counts.sum()
+        self.target_counts = target_counts
 
     @staticmethod
     def __create_seq_windows(
