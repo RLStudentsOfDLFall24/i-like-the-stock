@@ -293,20 +293,20 @@ def run_grid_search(
     # if args aren't passed, a default will be used so everything should be optional\
     # requires model type arg to add keys that are specific to the model
     # TODO step one - refactor the configurations to be passed in as args
-    ctx_size = [10, 30]
+    ctx_size = [30]
     d_models = [64]
-    batch_sizes = [64, 128]
-    l_rates = [1e-3, 1e-4]
-    fc_dims = [1024]
-    fc_dropouts = [0.1]
-    mlp_dims = [512, 1024]
-    mlp_dropouts = [0.4]
-    n_freqs = [32, 64]
-    num_encoders = [2, 3]
-    num_heads = [4, 8]
+    batch_sizes = [64]
+    l_rates = [5e-6, 1e-5, 5e-5]
+    fc_dims = [512]
+    fc_dropouts = [0.1, 0.2, 0.3]
+    mlp_dims = [512]
+    mlp_dropouts = [0.2, 0.3, 0.4]
+    n_freqs = [32]
+    num_encoders = [2]
+    num_heads = [2, 4, 8]
     num_lstm_layers = [2]
     lstm_dim = [128]
-    criteria = ["cb_focal", "ce"]
+    criteria = ["ce"]
 
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
@@ -329,7 +329,7 @@ def run_grid_search(
             "optimizer": "adam",
             "scheduler": "plateau",
             "criterion": crit,  # Cross Entropy
-            "epochs": 100
+            "epochs": 200
         }
         for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,

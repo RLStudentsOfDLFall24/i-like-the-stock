@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from src.models.abstract_model import AbstractModel
-from src.models.custom_modules import STEmbedding
+from src.models.custom_modules import STEmbedding, TemporalAttentionLayer
 
 
 class STTransformer(AbstractModel):
@@ -128,16 +128,19 @@ class STTransformer(AbstractModel):
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            input_size=model_dim,
+            # input_size=model_dim,
+            input_size=model_dim * d_features, # when we're using the STEmbedding
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
         )
 
+        self.tal = TemporalAttentionLayer(hidden_dim=lstm_dim, agg_dim=lstm_dim)
+        self.tal_layer_norm = nn.LayerNorm(2 * lstm_dim)
 
         # Linear output layers to classify the data
         self.linear = nn.Sequential(OrderedDict([
-            ("fc_1", nn.Linear(in_features=lstm_dim, out_features=mlp_dim)),  # This layer the grad drops to 0.2-0.25
+            ("fc_1", nn.Linear(in_features=2 * lstm_dim, out_features=mlp_dim)),  # This layer the grad drops to 0.2-0.25
             ("fc_bn", nn.BatchNorm1d(mlp_dim)),
             ("fc_gelu", nn.GELU()),
             ("fc_drop", nn.Dropout(mlp_dropout)),
@@ -156,14 +159,17 @@ class STTransformer(AbstractModel):
         # Can we norm here before the LSTM?
         outputs = self.pre_lstm_layer_norm(outputs)
 
-        # outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
+        outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
         # Return a dummy tensor with the output shapes
-        _, (h_t, _) = self.lstm(outputs)
-        # TODO - add temporal attention layer
+        h_all, (h_t, _) = self.lstm(outputs)
+
+        # TODO - add temporal attention layer, this might be really important based on the paper
+        tal = self.tal(h_all)
+        # Layer norm before the linear layer
 
         # Apply a batch norm to the LSTM output
         # mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
         # Remember we have weird dims on h_t, so we can squeeze
-        outputs = self.linear(h_t[-1].squeeze(0))
-        # outputs = self.linear(mlp_in)
+        # outputs = self.linear(h_t[-1].squeeze(0))
+        outputs = self.linear(tal)
         return outputs
