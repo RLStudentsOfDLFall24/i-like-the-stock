@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import torch
 from torch import nn
 
@@ -113,24 +115,26 @@ class STTransformer(AbstractModel):
             ),
             num_layers=num_encoders
         )
+        # Add a batch norm layer to the LSTM output before the linear layer
+        self.pre_lstm_layer_norm = nn.LayerNorm(model_dim)
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            input_size=d_features * model_dim,
+            input_size=model_dim,
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
         )
 
-        # Add a batch norm layer to the LSTM output before the linear layer
-        self.lstm_batch_norm = nn.BatchNorm1d(lstm_dim)
 
         # Linear output layers to classify the data
-        self.linear = nn.Sequential(
-            nn.Linear(in_features=lstm_dim, out_features=fc_dim),
-            nn.GELU(),
-            nn.Linear(in_features=fc_dim, out_features=num_outputs)
-        )
+        self.linear = nn.Sequential(OrderedDict([
+            ("fc_1", nn.Linear(in_features=lstm_dim, out_features=fc_dim)),  # This layer the grad drops to 0.2-0.25
+            ("fc_bn", nn.BatchNorm1d(fc_dim)),
+            ("fc_gelu", nn.GELU()),
+            ("fc_drop", nn.Dropout(0.4)),
+            ("fc_out", nn.Linear(in_features=fc_dim, out_features=num_outputs))  # This layer has grad norms 0.3-0.4
+        ]))
 
         self.to(device)
 
@@ -141,13 +145,17 @@ class STTransformer(AbstractModel):
 
         outputs = self.encoder_stack(embedded)
         # TODO: Investigate skip connection?
+        # Can we norm here before the LSTM?
+        outputs = self.pre_lstm_layer_norm(outputs)
 
-        outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
+        # outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
         # Return a dummy tensor with the output shapes
         _, (h_t, _) = self.lstm(outputs)
+        # TODO - add temporal attention layer
 
         # Apply a batch norm to the LSTM output
-        mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
+        # mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
         # Remember we have weird dims on h_t, so we can squeeze
-        outputs = self.linear(mlp_in)
+        outputs = self.linear(h_t[-1].squeeze(0))
+        # outputs = self.linear(mlp_in)
         return outputs

@@ -26,6 +26,12 @@ class STEmbedding(nn.Module):
     t2v: T2V
     """The time2vec encoding layer."""
 
+    numeric_projection: nn.Module
+    """The projection layer for numeric features."""
+
+    numeric_idx: list[int]
+    """The index of the numeric features in the input sequence."""
+
     dense_input_size: int
     """The size of the input to the dense layer."""
 
@@ -41,10 +47,22 @@ class STEmbedding(nn.Module):
     ):
         super(STEmbedding, self).__init__()
 
-        self.t2v = T2V(len(time_idx), n_frequencies)
-        self.dense_input_size = 1 + n_frequencies
-        self.dense = nn.Linear(self.dense_input_size, output_dim)
+        n_time_features = len(time_idx)
+
+        # Encode the time, project the numeric features to the same dimension
+        # TODO make time index mandatory parameter
+        self.t2v = T2V(n_time_features - 1, n_frequencies)
+
+        # Try projecting the numeric features to the same dimension as the encoded time features
+        self.numeric_projection = nn.Sequential(
+            nn.Linear(input_dim - n_time_features, n_frequencies),
+            nn.LayerNorm(n_frequencies),
+            nn.GELU()
+        )
+
+        self.dense = nn.Linear(2 * n_frequencies, output_dim) # concat dims
         self.time_idx = time_idx if time_idx is not None else [0]
+        self.numeric_idx = [i for i in range(input_dim) if i not in self.time_idx]
 
     def forward(self, inputs):
         """
@@ -54,17 +72,24 @@ class STEmbedding(nn.Module):
         :return: A batch of N x T x D embeddings of the input data.
         """
         # 1. Encode the time features using time2vec
-        encoded = self.t2v(inputs[:, :, self.time_idx])
+        # Ignore the 0 index in time # Testing
+        actual_time_idx = [i for i in self.time_idx if i != 0]
+        encoded = self.t2v(inputs[:, :, actual_time_idx])
+
+        # TODO - try using a pretrained t2v model
 
         # TODO 1b. Project numeric features for time to the same dimension as the encoded features
+        num_projected = self.numeric_projection(inputs[:, :, self.numeric_idx])
 
-        # 2. We expand the encoded sequence and the data
-        n, t, d = inputs.shape
-        data_expanded = inputs.reshape(n, t, d, 1)
-        encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
+        # TODO Fix the ST Transformer to expect the new shape
+        # # 2. We expand the encoded sequence and the data # Might revisit
+        # n, t, d = inputs.shape
+        # data_expanded = inputs.reshape(n, t, d, 1)
+        # encoded_expand = encoded.unsqueeze(2).expand(-1, -1, d, -1)
 
-        # Concat the expanded data and encoded sequence on last dim
-        concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).reshape(n, -1, self.dense_input_size)
+        # # Concat the expanded data and encoded sequence on last dim
+        # concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).reshape(n, -1, self.dense_input_size)
+        concatenated = torch.cat([encoded, num_projected], dim=-1)
 
         # Pass through the dense
-        return self.dense(concatenated)
+        return self.dense(concatenated) # If using concatenated TODO probably use this

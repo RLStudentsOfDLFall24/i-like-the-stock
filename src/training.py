@@ -6,6 +6,7 @@ import pandas as pd
 import torch as th
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from models.sttransformer import STTransformer
@@ -15,7 +16,15 @@ from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
 
 
-def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[float, float]:
+def train(
+        model,
+        dataloader,
+        optimizer,
+        criterion,
+        device: th.device,
+        epoch,
+        writer: SummaryWriter = None
+) -> tuple[float, float]:
     """
     Train the model on the given dataloader and return the losses for each batch.
 
@@ -24,15 +33,14 @@ def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[f
     :param optimizer:
     :param criterion:
     :param device:
+    :param epoch:
+    :param writer:
     :return:
     """
-    # Set the model to training mode
     model.train()
 
     # Initialize the loss
-    # total_loss = 0.0
     losses = np.zeros(len(dataloader))
-    # accuracies = np.zeros(len(dataloader))
 
     for ix, data in enumerate(dataloader):
         x = data[0].to(device)
@@ -50,11 +58,15 @@ def train(model, dataloader, optimizer, criterion, device: th.device) -> tuple[f
         th.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
+        if writer is not None:
+            # Log gradients at the end of the epoch
+            for l, (name, param) in enumerate(model.named_parameters()):
+                if param.grad is not None:
+                    writer.add_scalar(f"Gradients/{l:02}_{name}", param.grad.norm().item(),
+                                      epoch * len(dataloader) + ix)
+
         # Update loss
-        # total_loss += loss.item()
         losses[ix] = loss.item()
-        # accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
-        # pb.set_description_str("Batch: %d, Loss: %.4f" % ((ix + 1), loss.item()))
 
     return losses.sum(), losses.mean()
 
@@ -118,7 +130,7 @@ def train_model(
         k: int = 64,
         fc_dim: int = 512,
         fc_dropout: float = 0.2,
-        lr: float = 0.00002,
+        lr: float = 0.0002,
         time_idx: list[int] = None,
         # End model specific parameters
         # TODO These are top level training parameters, should be moved to a config
@@ -128,6 +140,7 @@ def train_model(
         epochs: int = 20,
         train_label_ct: th.Tensor = None,
         model_class: AbstractModel = STTransformer,
+        writer: SummaryWriter = None,
         **kwargs
 ):
     """Train a model and test the methods"""
@@ -148,11 +161,16 @@ def train_model(
         fc_dropout=fc_dropout,
         ctx_window=seq_len
     )
-
     # Set the optimizer
     match optimizer:
         case "adam":
-            optimizer = th.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-8)
+            optimizer = th.optim.Adam(
+                model.parameters(),
+                lr=lr,
+                betas=(0.9, 0.99),
+                eps=1e-8,
+                weight_decay=1e-3,
+            )
         case "sgd":
             optimizer = th.optim.SGD(model.parameters(), lr=lr)
         case _:
@@ -161,7 +179,7 @@ def train_model(
     # Set the scheduler
     match scheduler:
         case "plateau":
-            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-4)
         case "step":
             scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         case "multi":
@@ -182,7 +200,7 @@ def train_model(
         case "cb_focal":
             criterion = FocalLoss(
                 class_counts=train_label_ct.to(device),
-                gamma=1.0
+                gamma=2.0
             )
         case _:
             raise ValueError(f"Unknown criterion: {criterion}")
@@ -193,7 +211,7 @@ def train_model(
     pb = tqdm(total=epochs, desc="Epochs")
     for epoch in range(epochs):
         # Run training over the batches
-        train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device)
+        train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         scheduler.step(train_loss)
 
         # Evaluate the validation set
@@ -203,6 +221,10 @@ def train_model(
         train_losses[epoch] = train_loss_avg
         valid_losses[epoch] = valid_loss_avg
         # TODO add checkpointing for model parameters, saving the best model, etc.
+        if writer is not None:
+            writer.add_scalar("Loss/train", train_loss_avg, epoch)
+            writer.add_scalar("Loss/valid", valid_loss_avg, epoch)
+
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
         pb.set_description(
@@ -256,7 +278,10 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     )
 
 
-def run_grid_search(trial_prefix: str = "default_trial"):
+def run_grid_search(
+        trial_prefix: str = "default_trial",
+        use_writer: bool = True
+):
     """
     WIP - Will be parameterizing to allow for grid search over a model
 
@@ -270,12 +295,12 @@ def run_grid_search(trial_prefix: str = "default_trial"):
     # TODO step one - refactor the configurations to be passed in as args
     ctx_size = [30]
     d_models = [64]
-    batch_sizes = [64]
-    l_rates = [5e-6]
+    batch_sizes = [32]
+    l_rates = [1e-3]
     fc_dims = [1024]
-    fc_dropouts = [0.3]
-    n_freqs = [48, 16]
-    num_encoders = [4]
+    fc_dropouts = [0.1]
+    n_freqs = [32]
+    num_encoders = [2]
     num_heads = [4]
     num_lstm_layers = [2]
     lstm_dim = [128]
@@ -298,9 +323,9 @@ def run_grid_search(trial_prefix: str = "default_trial"):
             "lstm_dim": ld,
             "optimizer": "adam",
             "scheduler": "plateau",
-            # "criterion": "ce", # Cross Entropy
-            "criterion": "cb_focal",  # Class Balanced Focal Loss
-            "epochs": 10
+            "criterion": "ce",  # Cross Entropy
+            # "criterion": "cb_focal",  # Class Balanced Focal Loss
+            "epochs": 100
         }
         for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx, bs in product(
             d_models,
@@ -345,9 +370,11 @@ def run_grid_search(trial_prefix: str = "default_trial"):
     }
 
     for trial, config in enumerate(configurations):
+        writer = SummaryWriter(log_dir=f"../data/tensorboard/{trial_prefix}_{trial:03}") if use_writer else None
         tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
             (
             log_splits=trial == 0,
+            writer=writer,
             **config
         ))
 
@@ -357,7 +384,7 @@ def run_grid_search(trial_prefix: str = "default_trial"):
         plt.plot(v_loss, label='Valid Loss')
         # Set y scale between 0.25 and 1.25
         plt.xlim(0, config['epochs'])
-        plt.ylim(0.0, 1.5)
+        plt.ylim(0.0, 2)
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"../figures/trial_{trial:03}_{config['symbol']}_loss.png")
