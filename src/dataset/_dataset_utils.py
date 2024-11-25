@@ -11,7 +11,7 @@ We export the following functions and classes via __init__.py:
 Example importing from top level:
     from src import create_datasets, PriceSeriesDataset
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import torch as th
@@ -21,6 +21,29 @@ from ._priceseriesdataset import PriceSeriesDataset
 from src.indicators import compute_sma, compute_ema, compute_pct_b, compute_macd, compute_momentum, compute_rsi, \
     compute_relative_volume
 
+
+def get_ts_range(
+        start_date: str,
+        end_date: str,
+        start_offset: int = 0
+                        ) -> tuple[float, float]:
+    """
+    Convert the start and end dates to timestamps and return the range.
+    You may optionally provide an end_offset to adjust the starting timestamp.
+    This may be applicable for sequence based tasks where we can assume we have
+    the historical data for t-k for some sequence length k and we're looking to
+    predict t+1.
+    Note: Start date offset is relative, therefore you may provide either positive
+    or negative values to adjust the start date.
+    :param start_date: The start date for the range, the first date to predict.
+    :param end_date: The end date for the range, the last date to predict.
+    :param start_offset: An optional offset to adjust the start date.
+    :return: A tuple of the start and end timestamps for the range.
+    """
+    start_date = datetime.fromisoformat(start_date) + timedelta(days=start_offset)
+    end_date = datetime.fromisoformat(end_date)
+
+    return start_date.timestamp(), end_date.timestamp()
 
 def print_target_distribution(distributions: list[tuple[str, th.Tensor]]):
     """
@@ -129,15 +152,16 @@ def create_splits(
     :param log_splits: Whether to log the split counts.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
-    # Convert dates to timestamps for slicing
-    train_start_ts = datetime.fromisoformat(train_start).timestamp()
-    valid_start_ts = datetime.fromisoformat(valid_start).timestamp()
-    test_start_ts = datetime.fromisoformat(test_start).timestamp()
-    test_end_ts = datetime.fromisoformat(test_end).timestamp()
+    # Train data will start without any offset
+    train_start_ts, train_end_ts = get_ts_range(train_start, valid_start)
+
+    # We want to predict 6 month window, so we use t-k as the first date
+    valid_start_ts, valid_end_ts = get_ts_range(valid_start, test_start, start_offset=-seq_len)
+    test_start_ts, test_end_ts = get_ts_range(test_start, test_end, start_offset=-seq_len)
 
     # Split the targets
-    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < valid_start_ts)
-    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < test_start_ts)
+    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < train_end_ts)
+    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < valid_end_ts)
     test_mask = (features[:, 0] >= test_start_ts) & (features[:, 0] <= test_end_ts)
 
     x_train, y_train = features[train_mask], targets[train_mask]

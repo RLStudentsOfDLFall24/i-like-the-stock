@@ -179,7 +179,7 @@ def train_model(
     # Set the scheduler
     match scheduler:
         case "plateau":
-            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-4)
+            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-5)
         case "step":
             scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         case "multi":
@@ -295,27 +295,32 @@ def run_grid_search(
     # TODO step one - refactor the configurations to be passed in as args
     ctx_size = [30]
     d_models = [64]
-    batch_sizes = [32]
+    batch_sizes = [64, 128]
     l_rates = [1e-3]
     fc_dims = [1024]
     fc_dropouts = [0.1]
+    mlp_dims = [512]
+    mlp_dropouts = [0.4]
     n_freqs = [32]
     num_encoders = [2]
     num_heads = [4]
     num_lstm_layers = [2]
     lstm_dim = [128]
+    criteria = ["cb_focal"]
 
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
         {
             "symbol": "atnf",
             "seq_len": ctx,
-            "batch_size": 64,
+            "batch_size": bs,
             "d_model": d,
             "lr": lr,
             "time_idx": [0, 6, 7, 8],
             "fc_dim": fc,
             "fc_dropout": fcd,
+            "mlp_dim": mlp,
+            "mlp_dropout": mld,
             "k": k,
             "num_encoders": ne,
             "num_heads": nh,
@@ -323,22 +328,24 @@ def run_grid_search(
             "lstm_dim": ld,
             "optimizer": "adam",
             "scheduler": "plateau",
-            "criterion": "ce",  # Cross Entropy
-            # "criterion": "cb_focal",  # Class Balanced Focal Loss
-            "epochs": 100
+            "criterion": crit,  # Cross Entropy
+            "epochs": 150
         }
-        for d, lr, fc, fcd, k, ne, nh, nl, ld, ctx, bs in product(
+        for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,
             l_rates,
             fc_dims,
             fc_dropouts,
+            mlp_dims,
+            mlp_dropouts,
             n_freqs,
             num_encoders,
             num_heads,
             num_lstm_layers,
             lstm_dim,
             ctx_size,
-            batch_sizes
+            batch_sizes,
+            criteria
         )
     ]
 
@@ -366,7 +373,9 @@ def run_grid_search(
         "test_acc": [],
         "test_f1": [],
         "time_idx": [],
-        "test_pred_dist": []
+        "test_pred_dist": [],
+        "mlp_dropout": [],
+        "mlp_dim": []
     }
 
     for trial, config in enumerate(configurations):

@@ -33,6 +33,12 @@ class STTransformer(AbstractModel):
     fc_dropout: float
     """The dropout rate for the fully connected layer."""
 
+    mlp_dim: int
+    """The size of the MLP layer."""
+
+    mlp_dropout: float
+    """The dropout rate for the MLP layer."""
+
     num_outputs: int
     """The number of outputs in the output layer."""
 
@@ -71,6 +77,8 @@ class STTransformer(AbstractModel):
             n_frequencies: int = 32,
             fc_dim: int = 2048,
             fc_dropout: float = 0.1,
+            mlp_dim: int = 2048,
+            mlp_dropout: float = 0.4,
             ctx_window: int = 32,
             batch_size: int = 32,
             **kwargs
@@ -129,11 +137,11 @@ class STTransformer(AbstractModel):
 
         # Linear output layers to classify the data
         self.linear = nn.Sequential(OrderedDict([
-            ("fc_1", nn.Linear(in_features=lstm_dim, out_features=fc_dim)),  # This layer the grad drops to 0.2-0.25
-            ("fc_bn", nn.BatchNorm1d(fc_dim)),
+            ("fc_1", nn.Linear(in_features=lstm_dim, out_features=mlp_dim)),  # This layer the grad drops to 0.2-0.25
+            ("fc_bn", nn.BatchNorm1d(mlp_dim)),
             ("fc_gelu", nn.GELU()),
-            ("fc_drop", nn.Dropout(0.4)),
-            ("fc_out", nn.Linear(in_features=fc_dim, out_features=num_outputs))  # This layer has grad norms 0.3-0.4
+            ("fc_drop", nn.Dropout(mlp_dropout)),
+            ("fc_out", nn.Linear(in_features=mlp_dim, out_features=num_outputs))  # This layer has grad norms 0.3-0.4
         ]))
 
         self.to(device)
