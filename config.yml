@@ -15,14 +15,6 @@ lnn:
   batch_size: 10
   n_layers: 6
   hidden_size: 32
-  
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> b11fa0f (working on the LNN)
-
->>>>>>> c40d1e8 (working on the LNN)
 
 transformer:
   batch_size: 64
