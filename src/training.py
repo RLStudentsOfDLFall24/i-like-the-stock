@@ -396,7 +396,7 @@ def run_grid_search(
         plt.ylim(0.0, 2)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"../figures/trial_{trial:03}_{config['symbol']}_loss.png")
+        plt.savefig(f"figures/trial_{trial:03}_{config['symbol']}_loss.png")
         plt.close()
 
         # Save the loss and training results to the dictionary

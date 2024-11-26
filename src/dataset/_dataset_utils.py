@@ -67,7 +67,7 @@ def print_target_distribution(distributions: list[tuple[str, th.Tensor]]):
 
 def load_symbol(
         symbol: str,
-        root: str = "../data/clean",
+        root: str = "data/clean",
         target_type: str = "basic"
 ) -> tuple[th.Tensor, th.Tensor]:
     """
@@ -206,7 +206,7 @@ def create_splits(
 
 def create_datasets(
         symbol: str,
-        root: str = "../data/clean",
+        root: str = "data/clean",
         fixed_scaling: list[tuple[int, float]] = None,
         log_splits: bool = False,
         **kwargs
@@ -288,7 +288,7 @@ def run():
     # We specify the symbol and other parameters here
     train_dataset, valid_dataset, test_dataset = create_datasets(
         "atnf",
-        root="../data/clean",
+        root="data/clean",
         seq_len=10,
         fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
     )
