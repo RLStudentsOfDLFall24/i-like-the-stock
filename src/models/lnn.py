@@ -4,7 +4,7 @@ from .abstract_model import AbstractModel
 
 
 class LNN(AbstractModel):
-    def __init__(self, batch_size, input_size, hidden_size, n_layers=6, activation='relu', optimizer='adam'):
+    def __init__(self, batch_size, input_size, hidden_size, n_layers=6, activation='relu'):
         super(LNN, self).__init__(batch_size=batch_size)
         self.step_size = 1 / n_layers
 
