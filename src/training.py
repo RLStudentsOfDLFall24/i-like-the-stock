@@ -212,8 +212,6 @@ def train_model(
     for epoch in range(epochs):
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
-        scheduler.step(train_loss)
-
         # Evaluate the validation set
         valid_loss, valid_loss_avg, _, _, v_pred_dist = evaluate(model, valid_loader, criterion, device=device)
 
@@ -225,6 +223,8 @@ def train_model(
             writer.add_scalar("Loss/train", train_loss_avg, epoch)
             writer.add_scalar("Loss/valid", valid_loss_avg, epoch)
 
+        # Update the learning rate scheduler on the average training loss
+        scheduler.step(train_loss_avg)
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
         pb.set_description(
@@ -259,7 +259,7 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     train_data, valid_data, test_data = create_datasets(
         symbol,
         seq_len=seq_len,
-        # fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
         log_splits=log_splits
     )
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)

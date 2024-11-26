@@ -67,7 +67,7 @@ class STTransformer(AbstractModel):
             self,
             d_features: int,
             device: torch.device,
-            time_idx: list[int] = None,
+            time_idx: list[int],
             num_outputs: int = 3,
             num_encoders: int = 2,
             num_lstm_layers: int = 1,
@@ -99,14 +99,16 @@ class STTransformer(AbstractModel):
         self.num_lstm_layers = num_lstm_layers
         self.lstm_dim = lstm_dim
         self.n_frequencies = n_frequencies
-        self.time_idx = time_idx if time_idx is not None else [0]
+        self.time_idx = time_idx
+        # Todo fix this hard coded implementation, right now I don't want timestamp
+        self.ignore_cols = [0]
 
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
         self.embedding = STEmbedding(
             d_features,
             model_dim,
+            time_idx,
             n_frequencies,
-            time_idx
         )
 
         self.layer_norm = nn.LayerNorm(model_dim)
@@ -129,7 +131,7 @@ class STTransformer(AbstractModel):
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
             # input_size=model_dim,
-            input_size=model_dim * d_features, # when we're using the STEmbedding
+            input_size=model_dim * d_features,  # when we're using the STEmbedding
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
@@ -140,7 +142,7 @@ class STTransformer(AbstractModel):
 
         # Linear output layers to classify the data
         self.linear = nn.Sequential(OrderedDict([
-            ("fc_1", nn.Linear(in_features=2 * lstm_dim, out_features=mlp_dim)),  # This layer the grad drops to 0.2-0.25
+            ("fc_1", nn.Linear(in_features=2 * lstm_dim, out_features=mlp_dim)),
             ("fc_bn", nn.BatchNorm1d(mlp_dim)),
             ("fc_gelu", nn.GELU()),
             ("fc_drop", nn.Dropout(mlp_dropout)),
@@ -151,10 +153,13 @@ class STTransformer(AbstractModel):
 
     def forward(self, data):
         inputs = data.to(self.device)
-        embedded = self.embedding(inputs)
+        st_embedding = self.embedding(
+            inputs,
+            ignore_cols=self.ignore_cols
+        )
         # embedded = self.layer_norm(embedded)
 
-        outputs = self.encoder_stack(embedded)
+        outputs = self.encoder_stack(st_embedding)
         # TODO: Investigate skip connection?
         # Can we norm here before the LSTM?
         outputs = self.pre_lstm_layer_norm(outputs)

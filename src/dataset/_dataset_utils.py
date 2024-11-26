@@ -265,7 +265,8 @@ def create_datasets(
     ], dim=1)
 
     # 1:5 are open/high/low/close, adj_close so we add them and the moving averages
-    price_features = [i + 1 for i in range(5)] + [n_features + i for i in range(6)]
+    n_avg_features = 2 * len(ma_windows)
+    price_features = [i + 1 for i in range(5)] + [n_features + i for i in range(n_avg_features)]
     kwargs["price_features"] = price_features
 
     # Create the splits using the specified sequence length
