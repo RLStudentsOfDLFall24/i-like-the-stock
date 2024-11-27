@@ -17,10 +17,10 @@ from src.models.abstract_model import AbstractModel
 
 
 def train(
-        model,
-        dataloader,
-        optimizer,
-        criterion,
+        model: AbstractModel,
+        dataloader: DataLoader,
+        optimizer: th.optim.Optimizer,
+        criterion: th.nn.CrossEntropyLoss | FocalLoss,
         device: th.device,
         epoch,
         writer: SummaryWriter = None
@@ -72,9 +72,9 @@ def train(
 
 
 def evaluate(
-        model,
-        dataloader,
-        criterion,
+        model: AbstractModel,
+        dataloader: DataLoader,
+        criterion: th.optim.Optimizer,
         device: th.device = 'cpu',
 ) -> tuple[float, float, float, float, th.Tensor, float]:
     # Set the model to evaluation
