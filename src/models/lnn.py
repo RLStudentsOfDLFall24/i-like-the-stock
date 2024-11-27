@@ -37,9 +37,13 @@ class LNN(AbstractModel):
         
 
     def forward(self, data: torch.Tensor):
-        N, T, D = data.size()
-        x_t_n = torch.zeros(self.hidden_size)
-        return super().forward(data)
+        _, T, _ = data.size()
+        x = torch.zeros(self.hidden_size)
+        for idx in range(T):
+            for _ in range(self.n_layers):
+                x = self.__fused_step(data[:, idx, :], x)
+        
+        return x
     
     def __fused_step(self, data: torch.Tensor, hidden: torch.Tensor):
         func_data = self.weight @ data + self.r_weight @ hidden + self.bias
