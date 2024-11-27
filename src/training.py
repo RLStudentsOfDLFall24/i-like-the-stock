@@ -301,19 +301,19 @@ def run_grid_search(
     # if args aren't passed, a default will be used so everything should be optional\
     # requires model type arg to add keys that are specific to the model
     # TODO step one - refactor the configurations to be passed in as args
-    ctx_size = [10, 15, 20]
+    ctx_size = [i+2 for i in range(30)]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [1e-4, 5e-4]
+    l_rates = [1e-4]
     fc_dims = [1024]
     fc_dropouts = [0.1]
     mlp_dims = [1024]
-    mlp_dropouts = [0.2, 0.3]
+    mlp_dropouts = [0.3]
     n_freqs = [64]
-    num_encoders = [2, 4]
+    num_encoders = [2]
     num_heads = [8]
     num_lstm_layers = [2]
-    lstm_dim = [256, 512]
+    lstm_dim = [256]
     criteria = ["cb_focal"]
 
     # use itertools.product to generate dictionaries of hyperparameters
