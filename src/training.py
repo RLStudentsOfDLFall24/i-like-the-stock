@@ -1,3 +1,4 @@
+from datetime import datetime
 from itertools import product
 
 import matplotlib.pyplot as plt
@@ -159,7 +160,8 @@ def train_model(
         n_frequencies=k,
         fc_dim=fc_dim,
         fc_dropout=fc_dropout,
-        ctx_window=seq_len
+        ctx_window=seq_len,
+        **kwargs
     )
     # Set the optimizer
     match optimizer:
@@ -213,7 +215,7 @@ def train_model(
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         # Evaluate the validation set
-        valid_loss, valid_loss_avg, _, _, v_pred_dist = evaluate(model, valid_loader, criterion, device=device)
+        valid_loss, valid_loss_avg, v_acc, v_f1, v_pred_dist = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
@@ -222,9 +224,12 @@ def train_model(
         if writer is not None:
             writer.add_scalar("Loss/train", train_loss_avg, epoch)
             writer.add_scalar("Loss/valid", valid_loss_avg, epoch)
+            writer.add_scalar("Accuracy/valid", v_acc, epoch)
+            writer.add_scalar("F1/valid", v_f1, epoch)
 
         # Update the learning rate scheduler on the average training loss
-        scheduler.step(train_loss_avg)
+        # scheduler.step(train_loss_avg)
+        scheduler.step(valid_loss_avg)
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
         pb.set_description(
@@ -238,6 +243,9 @@ def train_model(
         criterion,
         device=device
     )
+    writer.add_scalar("Loss/test", test_loss_avg, epochs)
+    writer.add_scalar("Accuracy/test", test_acc, epochs)
+    writer.add_scalar("F1/test", test_f1, epochs)
 
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
@@ -293,20 +301,20 @@ def run_grid_search(
     # if args aren't passed, a default will be used so everything should be optional\
     # requires model type arg to add keys that are specific to the model
     # TODO step one - refactor the configurations to be passed in as args
-    ctx_size = [30]
+    ctx_size = [10, 15, 20]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [5e-6, 1e-5, 5e-5]
-    fc_dims = [512]
-    fc_dropouts = [0.1, 0.2, 0.3]
-    mlp_dims = [512]
-    mlp_dropouts = [0.2, 0.3, 0.4]
-    n_freqs = [32]
-    num_encoders = [2]
-    num_heads = [2, 4, 8]
+    l_rates = [1e-4, 5e-4]
+    fc_dims = [1024]
+    fc_dropouts = [0.1]
+    mlp_dims = [1024]
+    mlp_dropouts = [0.2, 0.3]
+    n_freqs = [64]
+    num_encoders = [2, 4]
+    num_heads = [8]
     num_lstm_layers = [2]
-    lstm_dim = [128]
-    criteria = ["ce"]
+    lstm_dim = [256, 512]
+    criteria = ["cb_focal"]
 
     # use itertools.product to generate dictionaries of hyperparameters
     configurations = [
@@ -316,7 +324,8 @@ def run_grid_search(
             "batch_size": bs,
             "d_model": d,
             "lr": lr,
-            "time_idx": [0, 6, 7, 8],
+            "time_idx": [6, 7, 8],
+            "ignore_cols": [0],
             "fc_dim": fc,
             "fc_dropout": fcd,
             "mlp_dim": mlp,
@@ -329,7 +338,7 @@ def run_grid_search(
             "optimizer": "adam",
             "scheduler": "plateau",
             "criterion": crit,  # Cross Entropy
-            "epochs": 200
+            "epochs": 100
         }
         for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,
@@ -375,11 +384,14 @@ def run_grid_search(
         "time_idx": [],
         "test_pred_dist": [],
         "mlp_dropout": [],
-        "mlp_dim": []
+        "mlp_dim": [],
+        "ignore_cols": []
     }
+    run_start_ts = int(datetime.now().timestamp())
 
     for trial, config in enumerate(configurations):
-        writer = SummaryWriter(log_dir=f"../data/tensorboard/{trial_prefix}_{trial:03}") if use_writer else None
+        writer_dir = f"../data/tensorboard/{run_start_ts}/{config['criterion']}/{trial_prefix}_{trial:03}"
+        writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
         tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
             (
             log_splits=trial == 0,

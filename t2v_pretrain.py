@@ -174,7 +174,6 @@ def train_t2v(
         if valid_loss_mean < best_loss:
             best_loss = valid_loss_mean
             best_t2v_state = model.t2v.state_dict()
-            print("what do we have")
 
         # Update the learning rate scheduler
         scheduler.step(valid_loss_mean)
@@ -226,7 +225,7 @@ def run_pretraining():
             train_loader,
             val_loader,
             device,
-            epochs=5,
+            epochs=200,
             writer_dir=f"data/tensorboard/{run_start_ts}",
             trial_name=trial_name,
             **model_params
@@ -247,18 +246,15 @@ def run_pretraining():
     return best_trial_name
 
 
-def try_load_t2v(model_weight_path: str):
+def try_load_t2v(model_weight_path: str = "t2v_n64_mlp1024_lr6.310e-05"):
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
-    # model = T2V(3, 64).to(device)
-    # model.load_state_dict(th.load(f"data/t2v_weights/{model_weight_path}.pth", weights_only=True))
-    # print(model)
-
     embedding = STEmbedding(
-        5,
+        6,
         64,
         pretrained_t2v=f"data/t2v_weights/{model_weight_path}.pth",
-        time_idx=[0, 1, 2]
-    )
+        time_idx=[0, 1, 2],
+        ignore_cols=[3]
+    ).to(device)
 
     # # Push a batch of N x T x F_t through the model
     # model.requires_grad_(False)
@@ -280,15 +276,17 @@ def try_load_t2v(model_weight_path: str):
 
     dates /= th.Tensor([3000, 12, 31])
 
-    # Create a 1 x 10 x 3 tensor with random values to concatenate with the dates
-    rand_data = th.rand(1, 10, 3)
+    # Create a 2 x 10 x 3 tensor with random values to concatenate with the dates
+    rand_data = th.rand(2, 10, 3)
+    # expand the dates to match the shape of the random data
+    dates = dates.expand(2, 10, 3)
     data = th.cat([dates, rand_data], dim=-1)
 
-    outs = embedding(data)
-    print(outs)
+    outs = embedding(data.to(device))
+    print(outs.shape)
 
 
 if __name__ == '__main__':
-    best_trial = run_pretraining()
-    # best_trial = "t2v_n64_mlp256_lr3.981e-04"
-    try_load_t2v(best_trial)
+    # best_trial = run_pretraining()
+    # best_trial = "t2v_n64_mlp512_lr1.000e-03"
+    try_load_t2v()

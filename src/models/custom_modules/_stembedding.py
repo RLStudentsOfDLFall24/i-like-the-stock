@@ -25,14 +25,15 @@ class STEmbedding(nn.Module):
     time_idx: list[int]
     """The index of the time feature(s) in the input sequence."""
 
+    ignore_cols: list[int]
+    """The index of the columns to ignore in the input sequence."""
+
     t2v: nn.Module
     """The time2vec encoding layer."""
 
-    numeric_projection: nn.Module
-    """The projection layer for numeric features."""
 
-    numeric_idx: list[int]
-    """The index of the numeric features in the input sequence."""
+    feature_idx: list[int]
+    """The index of the features in the input sequence."""
 
     dense_input_size: int
     """The size of the input to the dense layer."""
@@ -45,8 +46,10 @@ class STEmbedding(nn.Module):
             input_dim: int,
             output_dim: int,
             time_idx: list[int] = None,
+            ignore_cols: list[int] = None,
             n_frequencies: int = 64,
-            pretrained_t2v: str = None
+            # TODO fix this pathing
+            pretrained_t2v: str = "t2v_n64_mlp1024_lr6.310e-05",
     ):
         super(STEmbedding, self).__init__()
 
@@ -62,25 +65,24 @@ class STEmbedding(nn.Module):
             raise ValueError("Pretrained time2vec model must be specified")
 
         # Load and freeze T2V model weights
-        self.t2v.load_state_dict(torch.load(pretrained_t2v, weights_only=True))
+        self.t2v.load_state_dict(torch.load(f"../data/t2v_weights/{pretrained_t2v}.pth", weights_only=True))
         for param in self.t2v.parameters():
             param.requires_grad = False
-
-        # # Try projecting the numeric features to the same dimension as the encoded time features
-        # self.numeric_projection = nn.Sequential(
-        #     nn.Linear(input_dim - n_time_features, n_frequencies),
-        #     nn.LayerNorm(n_frequencies),
-        #     nn.GELU()
-        # )
 
         # self.dense_input_size = 2 * n_frequencies # Concat dims
         self.dense_input_size = 1 + n_frequencies
 
         self.dense = nn.Linear(self.dense_input_size, output_dim)  # concat dims
-        self.time_idx = time_idx if time_idx is not None else [0]
-        self.numeric_idx = [i for i in range(input_dim) if i not in self.time_idx]
 
-    def forward(self, inputs, ignore_cols: list[int] = None):
+        # Housekeeping on indices
+        self.time_idx = time_idx if time_idx is not None else [0]
+        self.ignore_cols = ignore_cols if ignore_cols is not None else []
+        self.feature_idx = [
+            i for i in range(input_dim)
+            if i not in self.time_idx and i not in self.ignore_cols
+        ]
+
+    def forward(self, inputs):
         """
         Forward pass for the spatiotemporal embedding layer.
 
@@ -92,12 +94,12 @@ class STEmbedding(nn.Module):
         # Ignore the 0 index in time # Testing
         # actual_time_idx = [i for i in self.time_idx if i != 0] # Todo fix this in STTransformer
         time_encoded = self.t2v(inputs[:, :, self.time_idx])
+        num_features = inputs[:, :, self.feature_idx]
 
         # TODO - try using a pretrained t2v model
         # 1b. Split the feature indices
-        ignore_cols = ignore_cols if ignore_cols is not None else []
-        feature_idx = [i for i in range(inputs.shape[-1]) if i not in self.time_idx and i not in ignore_cols]
-        num_features = inputs[:, :, feature_idx]
+        # ignore_cols = ignore_cols if ignore_cols is not None else []
+        # feature_idx = [i for i in range(inputs.shape[-1]) if i not in self.time_idx and i not in ignore_cols]
         # TODO 1b. Project numeric features for time to the same dimension as the encoded features
         # num_projected = self.numeric_projection(inputs[:, :, self.numeric_idx])
 

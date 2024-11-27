@@ -45,6 +45,9 @@ class STTransformer(AbstractModel):
     num_lstm_layers: int
     """The number of LSTM layers."""
 
+    lstm_in: int
+    """The input size of the LSTM input layer."""
+
     lstm_dim: int
     """The dimension of the LSTM hidden state."""
 
@@ -81,6 +84,7 @@ class STTransformer(AbstractModel):
             mlp_dropout: float = 0.4,
             ctx_window: int = 32,
             batch_size: int = 32,
+            ignore_cols: list[int] = None,
             **kwargs
     ):
         # Standard nn.Module initialization
@@ -101,14 +105,15 @@ class STTransformer(AbstractModel):
         self.n_frequencies = n_frequencies
         self.time_idx = time_idx
         # Todo fix this hard coded implementation, right now I don't want timestamp
-        self.ignore_cols = [0]
+        # self.ignore_cols = [0] if ignore_cols is None else ignore_cols
+        self.ignore_cols = ignore_cols if ignore_cols is not None else []
 
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
         self.embedding = STEmbedding(
             d_features,
             model_dim,
             time_idx,
-            n_frequencies,
+            ignore_cols=ignore_cols,
         )
 
         self.layer_norm = nn.LayerNorm(model_dim)
@@ -126,16 +131,19 @@ class STTransformer(AbstractModel):
             num_layers=num_encoders
         )
         # Add a batch norm layer to the LSTM output before the linear layer
-        self.pre_lstm_layer_norm = nn.LayerNorm(model_dim)
+
+        self.lstm_in = model_dim * (d_features - len(ignore_cols) - len(time_idx))
+        self.lstm_pre_layer_norm = nn.LayerNorm(self.lstm_in)
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            # input_size=model_dim,
-            input_size=model_dim * d_features,  # when we're using the STEmbedding
+            input_size=self.lstm_in,  # when we're using the STEmbedding
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
         )
+        self.lstm_post_layer_norm = nn.LayerNorm(lstm_dim)
+
 
         self.tal = TemporalAttentionLayer(hidden_dim=lstm_dim, agg_dim=lstm_dim)
         self.tal_layer_norm = nn.LayerNorm(2 * lstm_dim)
@@ -154,23 +162,27 @@ class STTransformer(AbstractModel):
     def forward(self, data):
         inputs = data.to(self.device)
         st_embedding = self.embedding(
-            inputs,
-            ignore_cols=self.ignore_cols
+            inputs
         )
         # embedded = self.layer_norm(embedded)
 
         outputs = self.encoder_stack(st_embedding)
         # TODO: Investigate skip connection?
         # Can we norm here before the LSTM?
-        outputs = self.pre_lstm_layer_norm(outputs)
+
 
         outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
+        outputs = self.lstm_pre_layer_norm(outputs)
+
         # Return a dummy tensor with the output shapes
         h_all, (h_t, _) = self.lstm(outputs)
+        # layer norm before the temporal attention layer
+        h_all_post_norm = self.lstm_post_layer_norm(h_all)
 
         # TODO - add temporal attention layer, this might be really important based on the paper
-        tal = self.tal(h_all)
+        tal = self.tal(h_all_post_norm)
         # Layer norm before the linear layer
+        tal = self.tal_layer_norm(tal)
 
         # Apply a batch norm to the LSTM output
         # mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
