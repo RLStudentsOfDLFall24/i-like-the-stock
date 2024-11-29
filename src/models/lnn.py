@@ -4,26 +4,27 @@ from .abstract_model import AbstractModel
 
 
 class LNN(AbstractModel):
-    def __init__(self, batch_size, input_size, hidden_size, n_layers=6, activation='relu'):
+    def __init__(self, batch_size, input_size, hidden_size, output_size, n_layers=6, activation='relu'):
         super(LNN, self).__init__(batch_size=batch_size)
         self.step_size = 1 / n_layers
 
         if activation == 'relu':
-            self.activation = nn.ReLU
+            self.activation = nn.ReLU()
         elif activation == 'leaky_relu':
-            self.activation = nn.LeakyReLU
+            self.activation = nn.LeakyReLU()
         elif activation == 'tanh':
-            self.activation = nn.Tanh
+            self.activation = nn.Tanh()
         elif activation == 'sigmoid':
-            self.activation = nn.Sigmoid
+            self.activation = nn.Sigmoid()
         elif activation == 'elu':
-            self.activation = nn.ELU
+            self.activation = nn.ELU()
         elif activation == 'gelu':
-            self.activation = nn.GELU
+            self.activation = nn.GELU()
         else:
             raise Exception(f'{activation} is not currently supported')
         self.hidden_size = hidden_size
         self.input_size = input_size
+        self.output_size = output_size
         self.n_layers = n_layers
 
         self.time_constant = nn.Parameter(torch.ones(hidden_size))
@@ -34,19 +35,21 @@ class LNN(AbstractModel):
 
         nn.init.xavier_uniform_(self.weight.data)
         nn.init.xavier_uniform_(self.r_weight.data)
+
+        self.output = nn.Linear(hidden_size, output_size)
         
 
     def forward(self, data: torch.Tensor):
-        _, T, _ = data.size()
-        x = torch.zeros(self.hidden_size)
+        N, T, _ = data.size()
+        x = torch.zeros((N, self.hidden_size)).to(self.bias.device)
         for idx in range(T):
             for _ in range(self.n_layers):
                 x = self.__fused_step(data[:, idx, :], x)
         
-        return x
+        return self.output(x)
     
     def __fused_step(self, data: torch.Tensor, hidden: torch.Tensor):
-        func_data = self.weight @ data + self.r_weight @ hidden + self.bias
+        func_data = data @ self.weight + hidden @ self.r_weight + self.bias.unsqueeze(0)
 
         activation = self.activation(func_data)
 
