@@ -1,11 +1,14 @@
+from collections import namedtuple
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
+from src.training import run_experiment
 
 import yaml
 
-MODEL_TYPES = ['rnn', 'transformer', 'lnn']
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
+Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
 def run():
@@ -21,28 +24,26 @@ def run():
         if m not in MODEL_TYPES:
             raise ValueError('Model type must be one of: ' + str(MODEL_TYPES))
         params = config_data[m]
-        # TODO push the model instantiation down to the experiment, we can pass a class and params
-        d_features = 42
-
-        if m == 'rnn':
-            models.append(RNN(params['batch_size']))
-        if m == 'transformer':
-            models.append(STTransformer(**params, device=device))
-        if m == 'lnn':
-            models.append(LNN(params['batch_size']))
+        trainer_params = config_data[m+'_trainer']
+        models.append(Model(m, MODEL_TYPES[m], params, trainer_params, device))
 
     if 'train' in config_data['mode']:
+        log_splits = config_data['global_params']['log_splits']
+        symbol = config_data['global_params']['symbol']
+
         for m in models:
+            seq_len = config_data[m.key]['seq_len']
+            batch_size = config_data[m.key]['batch_size']
             print('Starting training for ', m)
-            # call train fn
-            pass
+            run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
 
     if 'eval' in config_data['mode']:
         for m in models:
             print('Running eval for ', m)
-            fwd = m(th.Tensor(10, 10))
+            #fwd = m(th.Tensor(10, 10))
 
-            print(fwd)
+            #print(fwd)
+            pass
     pass
 
 

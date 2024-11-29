@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from models.sttransformer import STTransformer
+from src.models.sttransformer import STTransformer
 from src import create_datasets
 from src.cbfocal_loss import FocalLoss
 from src.dataset import print_target_distribution
@@ -115,58 +115,35 @@ def evaluate(
 
 def train_model(
         x_dim: int,
-        seq_len: int,
         train_loader: DataLoader,
         valid_loader: DataLoader,
         test_loader: DataLoader,
         # TODO only pass the model, not all the parameters
         # Begin model specific parameters
         d_model: int = 128,
-        num_heads: int = 2,
-        num_encoders: int = 8,
-        num_outputs: int = 3,
-        num_lstm_layers: int = 3,
-        lstm_dim: int = 256,
-        k: int = 64,
-        fc_dim: int = 512,
-        fc_dropout: float = 0.2,
-        lr: float = 0.0002,
         time_idx: list[int] = None,
         # End model specific parameters
         # TODO These are top level training parameters, should be moved to a config
-        optimizer: str = "adam",
-        scheduler: str = "plateau",
-        criterion: str = "ce",
-        epochs: int = 20,
         train_label_ct: th.Tensor = None,
-        model_class: AbstractModel = STTransformer,
+        model_class: AbstractModel = None,
         writer: SummaryWriter = None,
-        **kwargs
+        model_params = None,
+        trainer_params = None
 ):
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
-    model = STTransformer(
+    model = model_class(
         d_features=x_dim,
         device=device,
-        num_encoders=num_encoders,
-        num_outputs=num_outputs,
-        num_lstm_layers=num_lstm_layers,
-        lstm_dim=lstm_dim,
-        time_idx=[0] if time_idx is None else time_idx,
-        model_dim=d_model,
-        num_heads=num_heads,
-        n_frequencies=k,
-        fc_dim=fc_dim,
-        fc_dropout=fc_dropout,
-        ctx_window=seq_len
+        **model_params
     )
     # Set the optimizer
-    match optimizer:
+    match trainer_params['optimizer']:
         case "adam":
             optimizer = th.optim.Adam(
                 model.parameters(),
-                lr=lr,
+                lr=trainer_params['lr'],
                 betas=(0.9, 0.99),
                 eps=1e-8,
                 weight_decay=1e-3,
@@ -177,7 +154,7 @@ def train_model(
             raise ValueError(f"Unknown optimizer: {optimizer}")
 
     # Set the scheduler
-    match scheduler:
+    match trainer_params['scheduler']:
         case "plateau":
             scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-5)
         case "step":
@@ -187,7 +164,7 @@ def train_model(
         case _:
             raise ValueError(f"Unknown scheduler: {scheduler}")
 
-    match criterion:
+    match trainer_params['criterion']:
         case "ce":
             weight = None
             if train_label_ct is not None:
@@ -205,11 +182,11 @@ def train_model(
         case _:
             raise ValueError(f"Unknown criterion: {criterion}")
 
-    train_losses = np.zeros(epochs)
-    valid_losses = np.zeros(epochs)
+    train_losses = np.zeros(trainer_params['epochs'])
+    valid_losses = np.zeros(trainer_params['epochs'])
 
-    pb = tqdm(total=epochs, desc="Epochs")
-    for epoch in range(epochs):
+    pb = tqdm(total=trainer_params['epochs'], desc="Epochs")
+    for epoch in range(trainer_params['epochs']):
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         scheduler.step(train_loss)
@@ -242,7 +219,7 @@ def train_model(
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
 
-def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool = False, **kwargs):
+def run_experiment(model: AbstractModel, symbol: str, seq_len: int, batch_size: int, log_splits: bool = False, model_params = None, trainer_params=None):
     """
     Load the data symbol and create PriceSeriesDatasets.
 
@@ -254,7 +231,7 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     :param seq_len: The sequence length to use
     :param batch_size: The batch size to use for DataLoader
     :param log_splits: Whether to log the target distribution
-    :param kwargs: Additional arguments for the model
+    :param model_params: Additional arguments for the model
     """
     train_data, valid_data, test_data = create_datasets(
         symbol,
@@ -267,14 +244,16 @@ def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool 
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
     train_label_ct = train_data.target_counts
 
+
     return train_model(
         x_dim=train_data[0][0].shape[1],
-        seq_len=seq_len,
         train_loader=train_loader,
         valid_loader=valid_loader,
         test_loader=test_loader,
         train_label_ct=train_label_ct,
-        **kwargs
+        model_class=model,
+        model_params=model_params, 
+        trainer_params=trainer_params
     )
 
 
@@ -379,7 +358,7 @@ def run_grid_search(
     }
 
     for trial, config in enumerate(configurations):
-        writer = SummaryWriter(log_dir=f"../data/tensorboard/{trial_prefix}_{trial:03}") if use_writer else None
+        writer = SummaryWriter(log_dir=f"data/tensorboard/{trial_prefix}_{trial:03}") if use_writer else None
         tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
             (
             log_splits=trial == 0,
@@ -396,7 +375,7 @@ def run_grid_search(
         plt.ylim(0.0, 2)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"../figures/trial_{trial:03}_{config['symbol']}_loss.png")
+        plt.savefig(f"figures/trial_{trial:03}_{config['symbol']}_loss.png")
         plt.close()
 
         # Save the loss and training results to the dictionary
