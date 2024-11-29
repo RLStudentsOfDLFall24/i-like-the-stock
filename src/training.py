@@ -143,7 +143,7 @@ def train_model(
         model_class: AbstractModel = STTransformer,
         writer: SummaryWriter = None,
         **kwargs
-):
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
@@ -220,7 +220,7 @@ def train_model(
         # Log the progress
         train_losses[epoch] = train_loss_avg
         valid_losses[epoch] = valid_loss_avg
-        # TODO add checkpointing for model parameters, saving the best model, etc.
+
         if writer is not None:
             writer.add_scalar("Loss/train", train_loss_avg, epoch)
             writer.add_scalar("Loss/valid", valid_loss_avg, epoch)
@@ -250,7 +250,13 @@ def train_model(
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
 
-def run_experiment(symbol: str, seq_len: int, batch_size: int, log_splits: bool = False, **kwargs):
+def run_experiment(
+        symbol: str,
+        seq_len: int,
+        batch_size: int,
+        log_splits: bool = False,
+        **kwargs
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor]:
     """
     Load the data symbol and create PriceSeriesDatasets.
 
@@ -301,7 +307,7 @@ def run_grid_search(
     # if args aren't passed, a default will be used so everything should be optional\
     # requires model type arg to add keys that are specific to the model
     # TODO step one - refactor the configurations to be passed in as args
-    ctx_size = [i+2 for i in range(30)]
+    ctx_size = [11,12]
     d_models = [64]
     batch_sizes = [64]
     l_rates = [1e-4]
