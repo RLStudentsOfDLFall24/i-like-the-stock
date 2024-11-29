@@ -51,7 +51,7 @@ class STTransformer(AbstractModel):
     n_frequencies: int
     """The number of frequencies for the time2vec layer."""
 
-    ctx_window: int
+    seq_len: int
     """The context window for the transformer encoder."""
 
     time_idx: list[int]
@@ -79,9 +79,8 @@ class STTransformer(AbstractModel):
             fc_dropout: float = 0.1,
             mlp_dim: int = 2048,
             mlp_dropout: float = 0.4,
-            ctx_window: int = 32,
+            seq_len: int = 32,
             batch_size: int = 32,
-            **kwargs
     ):
         # Standard nn.Module initialization
         super(STTransformer, self).__init__(batch_size=batch_size)
@@ -89,7 +88,7 @@ class STTransformer(AbstractModel):
         # Assign the parameters to the class
         self.d_features = d_features
         self.device = device
-        self.ctx_window = ctx_window
+        self.seq_len = seq_len
         self.model_dim = model_dim
         self.num_encoders = num_encoders
         self.num_heads = num_heads
@@ -156,7 +155,7 @@ class STTransformer(AbstractModel):
         # Can we norm here before the LSTM?
         outputs = self.pre_lstm_layer_norm(outputs)
 
-        # outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
+        # outputs = outputs.reshape(inputs.shape[0], self.seq_len, -1)
         # Return a dummy tensor with the output shapes
         _, (h_t, _) = self.lstm(outputs)
         # TODO - add temporal attention layer
