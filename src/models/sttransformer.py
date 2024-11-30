@@ -54,7 +54,7 @@ class STTransformer(AbstractModel):
     n_frequencies: int
     """The number of frequencies for the time2vec layer."""
 
-    ctx_window: int
+    seq_len: int
     """The context window for the transformer encoder."""
 
     time_idx: list[int]
@@ -82,7 +82,7 @@ class STTransformer(AbstractModel):
             fc_dropout: float = 0.1,
             mlp_dim: int = 2048,
             mlp_dropout: float = 0.4,
-            ctx_window: int = 32,
+            seq_len: int = 32,
             batch_size: int = 32,
             ignore_cols: list[int] = None,
             **kwargs
@@ -93,7 +93,7 @@ class STTransformer(AbstractModel):
         # Assign the parameters to the class
         self.d_features = d_features
         self.device = device
-        self.ctx_window = ctx_window
+        self.seq_len = seq_len
         self.model_dim = model_dim
         self.num_encoders = num_encoders
         self.num_heads = num_heads

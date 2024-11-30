@@ -3,23 +3,40 @@ mode:
   - eval
 
 model_types:
-  #  - rnn
-  - transformer
+  - rnn
+  #- transformer
   #- lnn
+
+global_params:
+  symbol: "atnf"
+  log_splits: False
 
 rnn:
   batch_size: 10
+  seq_len: 30
   num_layers: 1
+
+rnn_trainer:
+  epochs: 10
+  lr: 5.e-6
+  optimizer: "adam"
+  scheduler: "plateau"
+  criterion: "cb_focal"  # Class Balanced Focal Loss
 
 lnn:
   batch_size: 10
 
+lnn_trainer:
+  epochs: 10
+  lr: 5.e-6
+  optimizer: "adam"
+  scheduler: "plateau"
+  criterion: "cb_focal"  # Class Balanced Focal Loss
+
 transformer:
   batch_size: 64
-  symbol: "atnf" # Move this to a top level config list for iteration
   seq_len: 30
-  d_model: 64
-  lr: 5e-6
+  model_dim: 64
   time_idx:
     - 0
     - 6
@@ -27,12 +44,15 @@ transformer:
     - 8
   fc_dim: 1024
   fc_dropout: 0.3
-  k: 16
+  n_frequencies: 16
   num_encoders: 4
   num_heads: 4
   num_lstm_layers: 2
   lstm_dim: 128
+
+transformer_trainer:
+  epochs: 10
+  lr: 5.e-6
   optimizer: "adam"
   scheduler: "plateau"
   criterion: "cb_focal"  # Class Balanced Focal Loss
-  epochs: 10
