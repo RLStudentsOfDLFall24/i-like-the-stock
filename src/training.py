@@ -306,19 +306,20 @@ def run_grid_search(
     # TODO Convert this to a method that returns  configurations to iterate over
     # if args aren't passed, a default will be used so everything should be optional\
     # requires model type arg to add keys that are specific to the model
-    # TODO step one - refactor the configurations to be passed in as args
-    ctx_size = [11,12]
+    # TODO step one -  refactor the configurations to be passed in as args
+    ctx_size = [11]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [1e-4]
-    fc_dims = [1024]
+    l_rates = [1e-5, 1e-6]
+    # l_rates = [1e-6, 5e-7]
+    fc_dims = [128, 256]
     fc_dropouts = [0.1]
     mlp_dims = [1024]
-    mlp_dropouts = [0.3]
+    mlp_dropouts = [0.3, 0.4]
     n_freqs = [64]
-    num_encoders = [2]
+    num_encoders = [2, 3, 4]
     num_heads = [8]
-    num_lstm_layers = [2]
+    num_lstm_layers = [2, 3]
     lstm_dim = [256]
     criteria = ["cb_focal"]
 
