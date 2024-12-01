@@ -182,11 +182,13 @@ def train_model(
         case _:
             raise ValueError(f"Unknown criterion: {criterion}")
 
-    train_losses = np.zeros(trainer_params['epochs'])
-    valid_losses = np.zeros(trainer_params['epochs'])
+    
+    epochs = trainer_params['epochs']
+    train_losses = np.zeros(epochs)
+    valid_losses = np.zeros(epochs)
 
-    pb = tqdm(total=trainer_params['epochs'], desc="Epochs")
-    for epoch in range(trainer_params['epochs']):
+    pb = tqdm(total=epochs, desc="Epochs")
+    for epoch in range(epochs):
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         scheduler.step(train_loss)
@@ -204,9 +206,11 @@ def train_model(
 
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        pb.set_description(
+        #pb.set_description(
+        #    f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        #pb.update(1)
+        print(
             f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        pb.update(1)
 
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist = evaluate(

@@ -13,15 +13,18 @@ global_params:
 
 rnn:
   batch_size: 10
+  hidden_size: 32
   seq_len: 30
+  dropout: 0.2
   num_layers: 1
+  num_outputs: 3
 
 rnn_trainer:
-  epochs: 10
+  epochs: 300
   lr: 5.e-6
   optimizer: "adam"
   scheduler: "plateau"
-  criterion: "cb_focal"  # Class Balanced Focal Loss
+  criterion: "ce"
 
 lnn:
   batch_size: 10
