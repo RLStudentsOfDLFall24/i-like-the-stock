@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch as th
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -76,7 +76,7 @@ def evaluate(
         dataloader,
         criterion,
         device: th.device = 'cpu',
-) -> tuple[float, float, float, float, th.Tensor | None]:
+) -> tuple[float, float, float, float, th.Tensor, float]:
     # Set the model to evaluation
     model.eval()
     # total_loss = 0.0
@@ -109,8 +109,9 @@ def evaluate(
     pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
 
     f1_weighted = f1_score(all_labels, all_preds, average='weighted')
+    mcc = matthews_corrcoef(all_labels, all_preds)
 
-    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
+    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist, mcc
 
 
 def train_model(
@@ -124,7 +125,7 @@ def train_model(
         model_params: dict = None,
         trainer_params: dict = None,
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
     epochs = trainer_params['epochs']
@@ -189,7 +190,7 @@ def train_model(
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         # Evaluate the validation set
-        v_loss, v_loss_avg, v_acc, v_f1, v_pred_dist = evaluate(model, valid_loader, criterion, device=device)
+        v_loss, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
@@ -200,6 +201,7 @@ def train_model(
             writer.add_scalar("Loss/valid", v_loss_avg, epoch)
             writer.add_scalar("Accuracy/valid", v_acc, epoch)
             writer.add_scalar("F1/valid", v_f1, epoch)
+            writer.add_scalar("MCC/valid", v_mcc, epoch)
 
         # Update the learning rate scheduler on the average validation loss
         scheduler.step(v_loss_avg)
@@ -210,17 +212,19 @@ def train_model(
         pb.update(1)
 
     # Evaluate the test set
-    test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist = evaluate(
+    test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc = evaluate(
         model,
         test_loader,
         criterion,
         device=device
     )
-    writer.add_scalar("Loss/test", test_loss_avg, epochs)
-    writer.add_scalar("Accuracy/test", test_acc, epochs)
-    writer.add_scalar("F1/test", test_f1, epochs)
+    if writer is not None:
+        writer.add_scalar("Loss/test", test_loss_avg, epochs)
+        writer.add_scalar("Accuracy/test", test_acc, epochs)
+        writer.add_scalar("F1/test", test_f1, epochs)
+        writer.add_scalar("MCC/test", test_mcc, epochs)
 
-    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
+    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc
 
 
 def run_experiment(
@@ -233,7 +237,7 @@ def run_experiment(
         trainer_params: dict = None,
         root: str = ".",
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
     """
     Load the data symbol and create PriceSeriesDatasets.
 
@@ -258,6 +262,7 @@ def run_experiment(
         - test_acc: The test accuracy
         - test_f1: The test F1 score
         - test_pred_dist: The test prediction distribution
+        - mcc: The test Matthews correlation coefficient
     """
     train_data, valid_data, test_data = create_datasets(
         symbol,
@@ -317,7 +322,7 @@ def run_grid_search(
     # Keys we know we'll need
     result_keys.update({
         "batch_size", "symbol", "trial_id", "test_loss", "test_loss_avg",
-        "test_acc", "test_f1", "test_pred_dist"
+        "test_acc", "test_f1", "test_pred_dist", "test_mcc"
     })
     results_dict = {key: [] for key in result_keys}
 
@@ -327,7 +332,7 @@ def run_grid_search(
         criterion = config['trainer_params']['criterion']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
-        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
+        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc = (run_experiment
             (
             model=model_type,
             log_splits=trial == 0,
@@ -358,7 +363,9 @@ def run_grid_search(
         results_dict["test_loss_avg"].append(tst_loss_avg)
         results_dict["test_acc"].append(tst_acc)
         results_dict["test_f1"].append(tst_f1)
+        results_dict["test_mcc"].append(tst_mcc)
         results_dict["test_pred_dist"].append([round(x.item(), 3) for x in tst_pred_dist])
+
 
         # Iterate over the config and append the values to the dictionary
         for key, value in config["trainer_params"].items():
