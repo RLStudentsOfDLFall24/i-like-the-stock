@@ -204,10 +204,6 @@ def run_pretraining():
     mlp_dims = [1024, 512]
     frequencies = [64]
 
-    # lrs = [1e-3]
-    # mlp_dims = [512]
-    # frequencies = [64]
-
     model_param_combos = [
         {
             "input_dim": 3,
@@ -287,6 +283,5 @@ def try_load_t2v(model_weight_path: str = "t2v_n64_mlp1024_lr6.310e-05"):
 
 
 if __name__ == '__main__':
-    # best_trial = run_pretraining()
-    # best_trial = "t2v_n64_mlp512_lr1.000e-03"
+    best_trial = run_pretraining()
     try_load_t2v()

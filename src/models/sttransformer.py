@@ -85,6 +85,7 @@ class STTransformer(AbstractModel):
             seq_len: int = 32,
             batch_size: int = 32,
             ignore_cols: list[int] = None,
+            pretrained_t2v: str = None,
             **kwargs
     ):
         # Standard nn.Module initialization
@@ -104,8 +105,6 @@ class STTransformer(AbstractModel):
         self.lstm_dim = lstm_dim
         self.n_frequencies = n_frequencies
         self.time_idx = time_idx
-        # Todo fix this hard coded implementation, right now I don't want timestamp
-        # self.ignore_cols = [0] if ignore_cols is None else ignore_cols
         self.ignore_cols = ignore_cols if ignore_cols is not None else []
 
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
@@ -114,6 +113,7 @@ class STTransformer(AbstractModel):
             model_dim,
             time_idx,
             ignore_cols=ignore_cols,
+            pretrained_t2v=pretrained_t2v
         )
 
         self.layer_norm = nn.LayerNorm(model_dim)
@@ -170,8 +170,7 @@ class STTransformer(AbstractModel):
         # TODO: Investigate skip connection?
         # Can we norm here before the LSTM?
 
-
-        outputs = outputs.reshape(inputs.shape[0], self.ctx_window, -1)
+        outputs = outputs.reshape(inputs.shape[0], self.seq_len, -1)
         outputs = self.lstm_pre_layer_norm(outputs)
 
         # Return a dummy tensor with the output shapes

@@ -1,7 +1,8 @@
+from collections import OrderedDict
+
 import torch
 from torch import nn
 
-from ._naivet2v import NaiveT2V
 from ._t2v import T2V
 
 
@@ -31,14 +32,13 @@ class STEmbedding(nn.Module):
     t2v: nn.Module
     """The time2vec encoding layer."""
 
-
     feature_idx: list[int]
     """The index of the features in the input sequence."""
 
     dense_input_size: int
     """The size of the input to the dense layer."""
 
-    dense: nn.Linear
+    dense: nn.Module
     """The dense layer for producing embeddings."""
 
     def __init__(
@@ -48,31 +48,35 @@ class STEmbedding(nn.Module):
             time_idx: list[int] = None,
             ignore_cols: list[int] = None,
             n_frequencies: int = 64,
-            # TODO fix this pathing
-            pretrained_t2v: str = "t2v_n64_mlp1024_lr6.310e-05",
+            pretrained_t2v: str = None,
     ):
         super(STEmbedding, self).__init__()
 
         n_time_features = len(time_idx)
-
-        # Encode the time, project the numeric features to the same dimension
-        # TODO make time index mandatory parameter
         self.n_frequencies = n_frequencies
-        # self.t2v = NaiveT2V(n_frequencies)
 
         self.t2v = T2V(n_time_features, n_frequencies)
         if pretrained_t2v is None:
             raise ValueError("Pretrained time2vec model must be specified")
 
         # Load and freeze T2V model weights
-        self.t2v.load_state_dict(torch.load(f"../data/t2v_weights/{pretrained_t2v}.pth", weights_only=True))
+        self.t2v.load_state_dict(torch.load(pretrained_t2v, weights_only=True))
         for param in self.t2v.parameters():
             param.requires_grad = False
 
-        # self.dense_input_size = 2 * n_frequencies # Concat dims
+        # TODO allow for expanded or condensed output.
+        # TODO if condensed - we pass the time features through a dense layer
+        # TODO then we concatenate the time features with the projection
+        # TODO the output from this representation will be 2 * n_frequencies
+        # TODO this should only change the input size to the dense output layer
         self.dense_input_size = 1 + n_frequencies
 
-        self.dense = nn.Linear(self.dense_input_size, output_dim)  # concat dims
+        self.dense = nn.Sequential(
+            OrderedDict([
+                ("ste_fc1", nn.Linear(self.dense_input_size, output_dim)),
+                ("ste_gelu1", nn.GELU()),
+                ("ste_fc2", nn.Linear(output_dim, output_dim)),
+            ]))
 
         # Housekeeping on indices
         self.time_idx = time_idx if time_idx is not None else [0]
@@ -116,4 +120,4 @@ class STEmbedding(nn.Module):
         # concatenated = torch.cat([encoded, num_projected], dim=-1)
 
         # Pass through the dense
-        return self.dense(concatenated)  # If using concatenated TODO probably use this
+        return self.dense(concatenated)
