@@ -177,7 +177,8 @@ def train_model(
         case "cb_focal":
             criterion = FocalLoss(
                 class_counts=train_label_ct.to(device),
-                gamma=2.0
+                gamma=trainer_params['cbf_gamma'],
+                beta=trainer_params['cbf_beta']
             )
         case _:
             raise ValueError(f"Unknown criterion: {crit_type}")

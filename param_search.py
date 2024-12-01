@@ -21,7 +21,6 @@ def run_st_grid_search():
     num_heads = [8]
     num_lstm_layers = [2]
     lstm_dim = [256]
-    criteria = ["cb_focal"]
 
     # use itertools.product to generate dictionaries of hyperparameters
     search_configs = [
@@ -30,11 +29,13 @@ def run_st_grid_search():
             "seq_len": ctx,
             "batch_size": bs,
             "trainer_params": {
-                "criterion": crit,
+                "criterion": "cb_focal",
                 "scheduler": "plateau",
                 "optimizer": "adam",
                 "lr": lr,
                 "epochs": 100,
+                "cbf_gamma": 1.0,
+                "cbf_beta": 0.9,
             },
             "model_params": {
                 "symbol": "atnf",
@@ -54,7 +55,7 @@ def run_st_grid_search():
                 "pretrained_t2v": f"{root}/data/t2v_weights/{t2v_weights}.pth",
             }
         }
-        for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
+        for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs in product(
             d_models,
             l_rates,
             fc_dims,
@@ -68,7 +69,6 @@ def run_st_grid_search():
             lstm_dim,
             ctx_size,
             batch_sizes,
-            criteria
         )
     ]
 
@@ -77,7 +77,7 @@ def run_st_grid_search():
         search_configs,
         trial_prefix="stt_default",
         root=root,
-        y_lims=(0.20, 0.40),
+        y_lims=(0.45, 0.8),
     )
 
 
