@@ -21,10 +21,12 @@ class RNN(AbstractModel):
                             num_layers=num_layers,
                             dropout=dropout)
 
+        #<IRNN paper implementation>
         torch.nn.init.eye_(self.model.weight_hh_l0)
         torch.nn.init.zeros_(self.model.bias_hh_l0)
         torch.nn.init.eye_(self.model.weight_ih_l0)
         torch.nn.init.zeros_(self.model.bias_ih_l0)
+        #</IRNN paper>
 
         self.fc_output = nn.Linear(hidden_size, num_outputs)
 
