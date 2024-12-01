@@ -264,6 +264,8 @@ def run_experiment(
         - test_pred_dist: The test prediction distribution
         - mcc: The test Matthews correlation coefficient
     """
+    th.manual_seed(1984)
+
     train_data, valid_data, test_data = create_datasets(
         symbol,
         seq_len=seq_len,
@@ -314,8 +316,6 @@ def run_grid_search(
     :param root: The root directory to save the results
     :param y_lims: The y limits for the loss plot
     """
-    th.manual_seed(1984)
-
     # Get all the unique key names from trainer and model params in a list or set
     result_keys = {key for config in search_configs for key in config["trainer_params"].keys()}
     result_keys.update({key for config in search_configs for key in config["model_params"].keys()})

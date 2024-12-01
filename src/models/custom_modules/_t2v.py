@@ -28,12 +28,10 @@ class T2V(nn.Module):
 
         # We have one non-periodic component and k-1 periodic components
         self.non_periodic_block = nn.Sequential(OrderedDict([
-            ("linear", nn.Linear(input_dim, 1))
+            ("linear", nn.Linear(input_dim, 1)),
         ]))
         self.periodic_block = nn.Sequential(OrderedDict([
             ("linear", nn.Linear(input_dim, n_frequencies - 1)),
-            # ("norm1", nn.LayerNorm(n_frequencies)),
-            # ("relu1", nn.GELU())
         ]))
 
     def forward(self, inputs):

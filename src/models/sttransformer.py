@@ -157,6 +157,10 @@ class STTransformer(AbstractModel):
             ("fc_out", nn.Linear(in_features=mlp_dim, out_features=num_outputs))  # This layer has grad norms 0.3-0.4
         ]))
 
+        # Initialize the weights of the linear layer
+        nn.init.orthogonal_(self.linear[0].weight)
+        nn.init.orthogonal_(self.linear[4].weight)
+
         self.to(device)
 
     def forward(self, data):

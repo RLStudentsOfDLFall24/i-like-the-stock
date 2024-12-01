@@ -78,6 +78,10 @@ class STEmbedding(nn.Module):
                 ("ste_fc2", nn.Linear(output_dim, output_dim)),
             ]))
 
+        # Ortho init for the dense layer
+        nn.init.orthogonal_(self.dense[0].weight)
+        nn.init.orthogonal_(self.dense[2].weight)
+
         # Housekeeping on indices
         self.time_idx = time_idx if time_idx is not None else [0]
         self.ignore_cols = ignore_cols if ignore_cols is not None else []
@@ -94,30 +98,13 @@ class STEmbedding(nn.Module):
         :param ignore_cols: A list of columns to ignore in the input data.
         :return: A batch of N x T x D embeddings of the input data.
         """
-        # 1a. Encode the time features using time2vec
-        # Ignore the 0 index in time # Testing
-        # actual_time_idx = [i for i in self.time_idx if i != 0] # Todo fix this in STTransformer
         time_encoded = self.t2v(inputs[:, :, self.time_idx])
         num_features = inputs[:, :, self.feature_idx]
 
-        # TODO - try using a pretrained t2v model
-        # 1b. Split the feature indices
-        # ignore_cols = ignore_cols if ignore_cols is not None else []
-        # feature_idx = [i for i in range(inputs.shape[-1]) if i not in self.time_idx and i not in ignore_cols]
-        # TODO 1b. Project numeric features for time to the same dimension as the encoded features
-        # num_projected = self.numeric_projection(inputs[:, :, self.numeric_idx])
-
-        # TODO Fix the ST Transformer to expect the new shape
-        # # # 2. We expand the encoded sequence and the data # Might revisit
-        # feature_idx = [i for i in range(inputs.shape[-1]) if i not in self.time_idx and i not in ignore_cols]
-        #
         n, t, d = num_features.shape
         data_expanded = num_features.reshape(n, t, d, 1)
         encoded_expand = time_encoded.unsqueeze(2).expand(-1, -1, d, -1)
 
         # Concat the expanded data and encoded sequence on last dim
         concatenated = torch.cat([data_expanded, encoded_expand], dim=-1).reshape(n, -1, self.dense_input_size)
-        # concatenated = torch.cat([encoded, num_projected], dim=-1)
-
-        # Pass through the dense
         return self.dense(concatenated)
