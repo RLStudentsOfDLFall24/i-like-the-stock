@@ -134,6 +134,7 @@ def train_model(
 ) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
+    epochs = trainer_params['epochs']
 
     model = model_class(
         d_features=x_dim,
@@ -151,9 +152,9 @@ def train_model(
                 weight_decay=1e-3,
             )
         case "sgd":
-            optimizer = th.optim.SGD(model.parameters(), lr=lr)
+            optimizer = th.optim.SGD(model.parameters(), lr=trainer_params['lr'])
         case _:
-            raise ValueError(f"Unknown optimizer: {optimizer}")
+            raise ValueError(f"Unknown optimizer: {trainer_params['optimizer']}")
 
     # Set the scheduler
     match trainer_params['scheduler']:
@@ -164,7 +165,7 @@ def train_model(
         case "multi":
             scheduler = th.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15])
         case _:
-            raise ValueError(f"Unknown scheduler: {scheduler}")
+            raise ValueError(f"Unknown scheduler: {trainer_params['scheduler']}")
 
     match trainer_params['criterion']:
         case "ce":
@@ -182,7 +183,7 @@ def train_model(
                 gamma=2.0
             )
         case _:
-            raise ValueError(f"Unknown criterion: {criterion}")
+            raise ValueError(f"Unknown criterion: {trainer_params['criterion']}")
 
     train_losses = np.zeros(trainer_params['epochs'])
     valid_losses = np.zeros(trainer_params['epochs'])
@@ -254,7 +255,8 @@ def run_experiment(
         symbol,
         seq_len=seq_len,
         fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-        log_splits=log_splits
+        log_splits=log_splits,
+        root="../data/clean"
     )
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
@@ -291,16 +293,16 @@ def run_grid_search(
     ctx_size = [11]
     d_models = [64]
     batch_sizes = [64]
-    l_rates = [1e-5, 1e-6]
+    l_rates = [1e-5]
     # l_rates = [1e-6, 5e-7]
     fc_dims = [128, 256]
     fc_dropouts = [0.1]
-    mlp_dims = [1024]
-    mlp_dropouts = [0.3, 0.4]
+    mlp_dims = [512]
+    mlp_dropouts = [0.4]
     n_freqs = [64]
-    num_encoders = [2, 3, 4]
+    num_encoders = [3]
     num_heads = [8]
-    num_lstm_layers = [2, 3]
+    num_lstm_layers = [3]
     lstm_dim = [256]
     criteria = ["cb_focal"]
 
@@ -326,7 +328,7 @@ def run_grid_search(
             "optimizer": "adam",
             "scheduler": "plateau",
             "criterion": crit,  # Cross Entropy
-            "epochs": 100
+            "epochs": 10
         }
         for d, lr, fc, fcd, mlp, mld, k, ne, nh, nl, ld, ctx, bs, crit in product(
             d_models,
@@ -375,6 +377,9 @@ def run_grid_search(
         "mlp_dim": [],
         "ignore_cols": []
     }
+
+    # TODO refactor to trainer params and model params
+
     run_start_ts = int(datetime.now().timestamp())
 
     for trial, config in enumerate(configurations):
@@ -382,6 +387,7 @@ def run_grid_search(
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
         tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist = (run_experiment
             (
+            model=STTransformer,
             log_splits=trial == 0,
             writer=writer,
             **config
