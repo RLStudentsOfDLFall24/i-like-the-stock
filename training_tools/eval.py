@@ -1,0 +1,47 @@
+import torch as th
+import numpy as np
+
+from sklearn.metrics import f1_score
+from src.models.abstract_model import AbstractModel
+from torch.utils.data import DataLoader
+
+def evaluate(
+        model: AbstractModel,
+        dataloader: DataLoader,
+        criterion: th.optim.Optimizer,
+        device: th.device = 'cpu',
+) -> tuple[float, float, float, float, th.Tensor | None]:
+    # Set the model to evaluation
+    model.eval()
+    # total_loss = 0.0
+
+    losses = np.zeros(len(dataloader))
+    accuracies = np.zeros(len(dataloader))
+
+    all_preds = []
+    all_labels = []
+    with th.no_grad():
+        for ix, data in enumerate(dataloader):
+            x = data[0].to(device)
+            y = data[1].to(device)
+
+            logits = model(x)
+            # Get the argmax of the logits
+            preds = th.argmax(logits, dim=1)
+            all_preds.append(preds)
+            all_labels.append(y)
+
+            losses[ix] = criterion(logits, y).item()
+            accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
+
+    # concat the preds and labels, then send to cpu
+    all_preds = th.cat(all_preds).cpu()
+    all_labels = th.cat(all_labels).cpu()
+
+    classes, counts = th.unique(all_preds, return_counts=True)
+    pred_dist = th.zeros(3)
+    pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
+
+    f1_weighted = f1_score(all_labels, all_preds, average='weighted')
+
+    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
