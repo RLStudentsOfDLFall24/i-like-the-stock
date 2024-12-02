@@ -105,6 +105,7 @@ def create_price_series(
         close_idx: int = 5,
         price_features: list[int] = None,
         t_0: float = None,
+        **kwargs
 ) -> PriceSeriesDataset:
     """
     Create a PriceSeriesDataset object from the given data.
@@ -120,7 +121,8 @@ def create_price_series(
         price_features=price_features,
         close_idx=close_idx,
         seq_len=seq_len,
-        t_0=t_0
+        t_0=t_0,
+        **kwargs
     )
 
 
@@ -175,21 +177,24 @@ def create_splits(
         x_train,
         y_train,
         seq_len=seq_len,
-        price_features=price_features
+        price_features=price_features,
+        name="train"
     )
     valid_set = create_price_series(
         x_valid,
         y_valid,
         seq_len=seq_len,
         t_0=t_0,
-        price_features=price_features
+        price_features=price_features,
+        name="valid"
     )
     test_set = create_price_series(
         x_test,
         y_test,
         seq_len=seq_len,
         t_0=t_0,
-        price_features=price_features
+        price_features=price_features,
+        name="test"
     )
 
     if log_splits:
