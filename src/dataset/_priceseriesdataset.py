@@ -79,7 +79,7 @@ class PriceSeriesDataset(Dataset):
         self.t_0 = t_0 if t_0 is not None else features[0, 0].item()
 
         # We want a clean index that represents the dates for which we're predicting
-        self.time_idx = features[seq_len-1:, 0].clone()
+        self.time_idx = features[seq_len-1:-1, 0].clone()
 
         # We subtract the first time value to get a relative time index starting at 0
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)
