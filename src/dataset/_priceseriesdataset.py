@@ -51,16 +51,19 @@ class PriceSeriesDataset(Dataset):
             close_idx: int = 5,
             seq_len: int = 10,
             t_0: float = None,
+            name: str = "train",
+            **kwargs
     ):
         """
         Initialize the dataset with the given features and targets.
 
         :param features: The time series features for the dataset.
         :param targets: The targets for the dataset at each time step.
+        :param price_features: The indices of the price features to normalize.
         :param close_idx: The index of the close price column.
         :param seq_len: The sequence length of the dataset windows.
         :param t_0: The first time value in the dataset.
-        :param price_features: The indices of the price features to normalize.
+        :param name: The name of the dataset.
         """
         # Seq len can't be greater than the number of features
         assert seq_len <= features.shape[0], "Sequence length must be less than the number of features"
@@ -68,13 +71,15 @@ class PriceSeriesDataset(Dataset):
         assert price_features is not None, "Price features must be specified"
 
         self.close_idx = close_idx
+        self.name = name
 
         # TODO save the actual prediction time index, not the first time index
         # TODO we want the time idx to represent the dates for which we're predicting
-        self.time_idx = features[:, 0].clone()
-
         # Don't use the last window as it will have no target
-        self.t_0 = t_0 if t_0 is not None else self.time_idx[0].item()
+        self.t_0 = t_0 if t_0 is not None else features[0, 0].item()
+
+        # We want a clean index that represents the dates for which we're predicting
+        self.time_idx = features[seq_len-1:, 0].clone()
 
         # We subtract the first time value to get a relative time index starting at 0
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)

@@ -1,4 +1,30 @@
 import numpy as np
+import pandas as pd
+
+
+def simulate_trades(
+        prices: np.array,
+        trades: np.array,
+        timestamps: np.array,
+        cash: float = 100_000,
+        commission: float = 10.00
+) -> pd.DataFrame:
+    """
+    Simulate the given trades with the starting cash balance.
+
+    :param prices: The historical prices for the asset being simulated
+    :param trades: The list of trades to make for the given asset
+    :param timestamps: The index of timestamps related to these trades
+    :param cash: The starting balance before any trades are executed
+    :param commission: The assumed commission for the trades being executed.
+            The commission fee applies to both buys/sells
+    :return: A dataframe with historical value of the trades and cash.
+    """
+    # assert prices.shape == trades.shape
+    # TODO create a dataframe index from the timestamps
+    # TODO put the prices, trades, cash in the dataframe
+    # TODO iterate through the dates to compute the ending value
+    pass
 
 
 def get_long_short_trades(actions: np.array) -> np.ndarray:
@@ -71,6 +97,16 @@ def run():
     trades_t[:-1] = get_long_short_trades(actions)
     print(trades_t)
 
+    # Put together some tests for the trading
+    from src.dataset import create_datasets
+
+    train, valid, test = create_datasets(
+        "atnf",
+        root='../../data/clean',
+        seq_len=10,
+    )
+
+    print("here")
 
 if __name__ == '__main__':
     run()
