@@ -1,0 +1,1 @@
+from ._simulation import get_long_short_trades
