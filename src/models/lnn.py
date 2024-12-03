@@ -148,7 +148,7 @@ class LNN(AbstractModel):
         return (cm_t * v_pre + gleak * self._params['vleak'] + w_numerator) / (cm_t + gleak + w_denominator + self.epsilon)
 
 
-from ncps.torch import LTC
+from ncps.torch import LTC, CfC
 from ncps.wirings import AutoNCP 
 
 class LNN_2(AbstractModel):
@@ -157,6 +157,36 @@ class LNN_2(AbstractModel):
         wiring = AutoNCP(hidden_size, output_size)
         
         self.model = LTC(input_size, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, return_sequences=False)
+
+    def forward(self, x):
+        result = self.model(x)
+
+        return result[0]
+
+class LNN_CfC(AbstractModel):
+    def __init__(self,
+                 batch_size,
+                 input_size,
+                 hidden_size,
+                 output_size,
+                 backbone_dropout=0.0,
+                 backbone_layers=1,
+                 backbone_hidden=128,
+                 activation='lecun_tanh',
+                 use_mixed=False):
+        super(LNN_CfC, self).__init__(batch_size=batch_size)
+        wiring = AutoNCP(hidden_size, output_size)
+        
+        self.model = CfC(
+            input_size,
+            hidden_size,
+            proj_size=output_size,
+            backbone_dropout=backbone_dropout,
+            backbone_layers=backbone_layers,
+            backbone_units=backbone_hidden,
+            activation=activation,
+            return_sequences=False,
+            mixed_memory=use_mixed)
 
     def forward(self, x):
         result = self.model(x)

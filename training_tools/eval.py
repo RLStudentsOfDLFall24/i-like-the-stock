@@ -1,14 +1,15 @@
 import torch as th
 import numpy as np
 
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef
+from src.cbfocal_loss import FocalLoss
 from src.models.abstract_model import AbstractModel
 from torch.utils.data import DataLoader
 
 def evaluate(
         model: AbstractModel,
         dataloader: DataLoader,
-        criterion: th.optim.Optimizer,
+        criterion: th.nn.CrossEntropyLoss | FocalLoss,
         device: th.device = 'cpu',
 ) -> tuple[float, float, float, float, th.Tensor | None]:
     # Set the model to evaluation
@@ -43,5 +44,6 @@ def evaluate(
     pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
 
     f1_weighted = f1_score(all_labels, all_preds, average='weighted')
+    mcc = matthews_corrcoef(all_labels, all_preds)
 
-    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist
+    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist, mcc
