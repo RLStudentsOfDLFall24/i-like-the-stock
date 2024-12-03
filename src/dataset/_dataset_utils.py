@@ -113,11 +113,13 @@ def create_price_series(
     :return: A PriceSeriesDataset object for the given data.
     """
     # Normalize the price features by the first value of the close price
+    unscaled_prices = features[:, close_idx].clone()
     features[:, price_features] = features[:, price_features] / features[0, close_idx]
 
     return PriceSeriesDataset(
         features=features,
         targets=targets,
+        unscaled_prices=unscaled_prices,
         price_features=price_features,
         close_idx=close_idx,
         seq_len=seq_len,
