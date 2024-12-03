@@ -8,7 +8,7 @@ from src.training import run_grid_search
 def run_st_grid_search():
     root = os.getcwd()
     t2v_weights = f"t2v_n64_mlp1024_lr6.310e-05"
-    ctx_size = [10]
+    ctx_size = [10, 20]
     d_models = [64]
     batch_sizes = [128]
     l_rates = [1e-5]
@@ -21,11 +21,12 @@ def run_st_grid_search():
     num_heads = [8]
     num_lstm_layers = [2]
     lstm_dim = [256]
+    symbol = "bivi"
 
     # use itertools.product to generate dictionaries of hyperparameters
     search_configs = [
         {
-            "symbol": "atnf",
+            "symbol": symbol,
             "seq_len": ctx,
             "batch_size": bs,
             "trainer_params": {
@@ -33,12 +34,12 @@ def run_st_grid_search():
                 "scheduler": "plateau",
                 "optimizer": "adam",
                 "lr": lr,
-                "epochs": 100,
+                "epochs": 200,
                 "cbf_gamma": 1.0,
-                "cbf_beta": 0.9,
+                "cbf_beta": 0.99,
             },
             "model_params": {
-                "symbol": "atnf",
+                "symbol": symbol,
                 "seq_len": ctx,
                 "d_model": d,
                 "time_idx": [6, 7, 8],
@@ -75,7 +76,7 @@ def run_st_grid_search():
     run_grid_search(
         STTransformer,
         search_configs,
-        trial_prefix="stt_default",
+        trial_prefix=f"stt_default_{symbol}",
         root=root,
         y_lims=(0.45, 0.8),
     )

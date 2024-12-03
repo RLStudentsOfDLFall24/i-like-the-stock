@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from src import create_datasets
 from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
+import matplotlib.pyplot as plt
 from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results
 
 
@@ -56,7 +57,7 @@ def train_model(
         # Run training over the batches
         _, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         # Evaluate the validation set
-        _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc = evaluate(model, valid_loader, criterion, device=device)
+        _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc, _ = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
@@ -81,17 +82,40 @@ def train_model(
             f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
 
     # Evaluate the test set
-    test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc = evaluate(
+    test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df = evaluate(
         model,
         test_loader,
         criterion,
-        device=device
+        device=device,
+        simulate=True
     )
+
     if writer is not None:
         writer.add_scalar("Loss/test", test_loss_avg, epochs)
         writer.add_scalar("Accuracy/test", test_acc, epochs)
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
+
+        # sim_df is a 2 column data frame with a time index.
+        if sim_df is not None:
+            fig, ax = plt.subplots()
+            sim_df.plot(
+                ax=ax,
+                y=["value", "price"],
+                label=["Value", f"{model_params['symbol']} Normalized"]
+            )
+            # Add a dashed line at y = 1.0
+            ax.axhline(1.0, color='k', linestyle='--')
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Normalized Value")
+            ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
+            plt.tight_layout()
+
+            writer.add_figure("Simulation/Results", fig, global_step=epochs)
+            # We can also compute cumulative returns and add that to the tensorboard
+            cum_ret = (sim_df["value"].iloc[-1] - sim_df["value"].iloc[0]) / sim_df["value"].iloc[0]
+            writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
+
 
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc
 

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def simulate_trades(
         prices: np.array,
-        trades: np.array,
+        actions: np.array,
         timestamps: np.array,
         cash: float = 10_000,
         commission: float = 10.00,
@@ -15,7 +15,7 @@ def simulate_trades(
     Simulate the given trades with the starting cash balance.
 
     :param prices: The historical prices for the asset being simulated
-    :param trades: The list of trades to make for the given asset
+    :param actions: The list of actions to make for the given asset
     :param timestamps: The index of timestamps related to these trades
     :param cash: The starting balance before any trades are executed
     :param commission: The assumed commission for the trades being executed.
@@ -25,6 +25,7 @@ def simulate_trades(
     """
     # Convert the time stamps to a pandas datetime index
     timestamps = pd.to_datetime(timestamps, unit='s')
+    trades = get_long_short_trades(actions)
 
     # Setup prices for the stock and value of cash
     price_ix = np.ones((prices.shape[0], 2))
@@ -144,8 +145,8 @@ def run():
 
     # Test the trade simulation
     dummy_trades = np.zeros_like(valid.time_idx)
-    dummy_trades[0] = 1  # We just buy on the first day and that's it
-    dummy_trades[10] = -2
+    dummy_trades[0] = 2  # We just buy on the first day and that's it
+    dummy_trades[10] = 0
     results = simulate_trades(
         valid.unscaled_prices.detach().numpy(),
         dummy_trades,
