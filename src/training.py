@@ -5,13 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch as th
-<<<<<<< HEAD
-from sklearn.metrics import f1_score
-from torch.utils.data import DataLoader, ConcatDataset
-=======
 from sklearn.metrics import f1_score, matthews_corrcoef
-from torch.utils.data import DataLoader
->>>>>>> 7ea70c83b759331a92fbfb6626d80ac3f218795a
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -191,10 +186,11 @@ def train_model(
         case _:
             raise ValueError(f"Unknown criterion: {crit_type}")
 
+    epochs = trainer_params['epochs']
+
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
-<<<<<<< HEAD
     #pb = tqdm(total=epochs, desc="Epochs")
     for epoch in range(epochs):
         # Run training over the batches
@@ -217,9 +213,11 @@ def train_model(
         scheduler.step(v_loss_avg)
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        pb.set_description(
+        #pb.set_description(
+        #    f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        #pb.update(1)
+        print(
             f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        pb.update(1)
 
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc = evaluate(
@@ -234,30 +232,20 @@ def train_model(
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
 
-<<<<<<< HEAD
     return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
 
-def run_experiment(model: AbstractModel, train_symbols: list[str],
-                   target_symbol: str, seq_len: int, batch_size: int,
-                   log_splits: bool = False, model_params = None,
-                   trainer_params=None, split: float = 0):
-=======
-    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc
-
-
-def run_experiment(
-        model: type[AbstractModel],
-        symbol: str,
-        seq_len: int,
-        batch_size: int,
-        log_splits: bool = False,
-        model_params: dict = None,
-        trainer_params: dict = None,
-        root: str = ".",
-        **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
->>>>>>> 7ea70c83b759331a92fbfb6626d80ac3f218795a
+def run_experiment(model: type[AbstractModel],
+                   train_symbols: list[str],
+                   target_symbol: str,
+                   seq_len: int,
+                   batch_size: int,
+                   log_splits: bool = False,
+                   model_params: dict = None,
+                   trainer_params: dict=None,
+                   split: float = 0,
+                   root: str = ".",
+                   **kwargs) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
     """
     Load the data symbols and create PriceSeriesDatasets.
 
@@ -265,12 +253,6 @@ def run_experiment(
     and then partitioned into train, validation, and test sets. The data are then
     wrapped in DataLoader objects for use in training and evaluation loops.
 
-<<<<<<< HEAD
-    :param symbols: The symbols to load
-=======
-    :param model: The model class to train
-    :param symbol: The symbol to load
->>>>>>> 7ea70c83b759331a92fbfb6626d80ac3f218795a
     :param seq_len: The sequence length to use
     :param batch_size: The batch size to use for DataLoader
     :param log_splits: Whether to log the target distribution
@@ -288,19 +270,20 @@ def run_experiment(
         - test_pred_dist: The test prediction distribution
         - mcc: The test Matthews correlation coefficient
     """
-<<<<<<< HEAD
 
     trains = []
     target_train = None
     target_valid = None
     target_test = None
+    th.manual_seed(1984)
 
     for symbol in train_symbols:
         train_data, valid_data, test_data = create_datasets(
             symbol,
             seq_len=seq_len,
             fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-            log_splits=log_splits
+            log_splits=log_splits,
+            root=f"{root}/data/clean"
         )
 
         trains.append(train_data)
@@ -333,16 +316,6 @@ def run_experiment(
         model_class=model,
         model_params=model_params, 
         trainer_params=trainer_params
-=======
-    th.manual_seed(1984)
-
-    train_data, valid_data, test_data = create_datasets(
-        symbol,
-        seq_len=seq_len,
-        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-        log_splits=log_splits,
-        root=f"{root}/data/clean"
->>>>>>> 7ea70c83b759331a92fbfb6626d80ac3f218795a
     )
 
     trainer_params['epochs'] = int((1-split)*epochs)
@@ -350,11 +323,7 @@ def run_experiment(
     train_label_ct = target_train.target_counts
     trainer_params['lr'] = trainer_params['lr'] * trainer_params['fine_tune_lr_ratio']
 
-<<<<<<< HEAD
-
     #finetune
-=======
->>>>>>> 7ea70c83b759331a92fbfb6626d80ac3f218795a
     return train_model(
         model=pretrain[0],
         x_dim=train_data[0][0].shape[1],
