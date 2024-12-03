@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def simulate_trades(
         prices: np.array,
         trades: np.array,
         timestamps: np.array,
-        cash: float = 100_000,
-        commission: float = 10.00
+        cash: float = 10_000,
+        commission: float = 10.00,
+        shares_per_trade: int = 1_000
 ) -> pd.DataFrame:
     """
     Simulate the given trades with the starting cash balance.
@@ -18,28 +20,41 @@ def simulate_trades(
     :param cash: The starting balance before any trades are executed
     :param commission: The assumed commission for the trades being executed.
             The commission fee applies to both buys/sells
+    :param shares_per_trade: The number of shares to buy/sell per trade
     :return: A dataframe with historical value of the trades and cash.
     """
     # Convert the time stamps to a pandas datetime index
     timestamps = pd.to_datetime(timestamps, unit='s')
-    # Use this index to create a dataframe
-    df = pd.DataFrame(
-        {
-            "prices": prices,
-            "trades": trades,
-            "shares": np.zeros_like(prices),
-            "cash": np.zeros_like(prices)
-        },
-        index=timestamps
-    )
-    # Use loc to set the initial cash value
-    df.loc[timestamps[0], "cash"] = cash
 
-    # assert prices.shape == trades.shape
-    # TODO create a dataframe index from the timestamps
-    # TODO put the prices, trades, cash in the dataframe
-    # TODO iterate through the dates to compute the ending value
-    return df  # TODO implement the simulation
+    # Setup prices for the stock and value of cash
+    price_ix = np.ones((prices.shape[0], 2))
+    price_ix[:, 0] = prices
+
+    # Compute commissions and trades 0: Stock, 1: Cash
+    trade_vals = np.zeros_like(price_ix)
+    trade_vals[:, 0] = trades * shares_per_trade
+    commissions = np.zeros_like(trades)
+    commissions[trades != 0] = commission
+
+    # Compute cash impact of each trade
+    trade_vals[:, 1] = -(trade_vals[:, 0] * price_ix[:, 0]) - commissions
+
+    # Iterate through the trades and compute the ending value
+    holding_vals = np.zeros_like(trade_vals)
+    holding_vals[0, 1] = cash  # Set the initial cash value
+    for t in range(1, trade_vals.shape[0]):
+        holding_vals[t] = holding_vals[t - 1, :] + trade_vals[t - 1, :]
+
+    adjusted_val = (holding_vals * price_ix).sum(axis=1)
+    adjusted_val /= adjusted_val[0]
+    adjusted_val = np.round(adjusted_val, 2)
+
+    result_df = pd.DataFrame({
+        "value": adjusted_val,  # The total value of the portfolio
+        "price": np.round(prices / prices[0], 2),  # The normalized price
+    }, index=timestamps)
+
+    return result_df
 
 
 def get_long_short_trades(actions: np.array) -> np.ndarray:
@@ -129,12 +144,24 @@ def run():
 
     # Test the trade simulation
     dummy_trades = np.zeros_like(valid.time_idx)
-    dummy_trades[0] = 1 # We just buy on the first day and that's it
+    dummy_trades[0] = 1  # We just buy on the first day and that's it
+    dummy_trades[10] = -2
     results = simulate_trades(
         valid.unscaled_prices.detach().numpy(),
         dummy_trades,
         valid.time_idx.detach().numpy()
     )
+
+    # Simple example of plotting the results, we could concatenate multiple symbols
+    # and/or use seaborn instead
+    plot = results.plot(
+        y=["value", "price"],
+        title="Portfolio Value and Normalized Price",
+    )
+    plot.set_xlim([results.index[0], results.index[-1]])
+    plt.tight_layout()
+    plt.show()
+
 
 if __name__ == '__main__':
     run()
