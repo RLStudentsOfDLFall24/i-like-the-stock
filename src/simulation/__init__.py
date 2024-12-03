@@ -1,1 +1,1 @@
-from ._simulation import get_long_short_trades
+from ._simulation import simulate_trades
