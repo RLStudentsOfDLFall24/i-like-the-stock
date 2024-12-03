@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from src.models.abstract_model import AbstractModel
-from src.models.custom_modules import STEmbedding
+from src.models.custom_modules import STEmbedding, TemporalAttentionLayer
 
 
 class STTransformer(AbstractModel):
@@ -45,6 +45,9 @@ class STTransformer(AbstractModel):
     num_lstm_layers: int
     """The number of LSTM layers."""
 
+    lstm_in: int
+    """The input size of the LSTM input layer."""
+
     lstm_dim: int
     """The dimension of the LSTM hidden state."""
 
@@ -67,7 +70,7 @@ class STTransformer(AbstractModel):
             self,
             d_features: int,
             device: torch.device,
-            time_idx: list[int] = None,
+            time_idx: list[int],
             num_outputs: int = 3,
             num_encoders: int = 2,
             num_lstm_layers: int = 1,
@@ -81,6 +84,9 @@ class STTransformer(AbstractModel):
             mlp_dropout: float = 0.4,
             seq_len: int = 32,
             batch_size: int = 32,
+            ignore_cols: list[int] = None,
+            pretrained_t2v: str = None,
+            **kwargs
     ):
         # Standard nn.Module initialization
         super(STTransformer, self).__init__(batch_size=batch_size)
@@ -98,14 +104,16 @@ class STTransformer(AbstractModel):
         self.num_lstm_layers = num_lstm_layers
         self.lstm_dim = lstm_dim
         self.n_frequencies = n_frequencies
-        self.time_idx = time_idx if time_idx is not None else [0]
+        self.time_idx = time_idx
+        self.ignore_cols = ignore_cols if ignore_cols is not None else []
 
         # Embedding layer -> outputs N x (seq_len * feature_dim) x D
         self.embedding = STEmbedding(
             d_features,
             model_dim,
-            n_frequencies,
-            time_idx
+            time_idx,
+            ignore_cols=ignore_cols,
+            pretrained_t2v=pretrained_t2v
         )
 
         self.layer_norm = nn.LayerNorm(model_dim)
@@ -123,46 +131,65 @@ class STTransformer(AbstractModel):
             num_layers=num_encoders
         )
         # Add a batch norm layer to the LSTM output before the linear layer
-        self.pre_lstm_layer_norm = nn.LayerNorm(model_dim)
+
+        self.lstm_in = model_dim * (d_features - len(ignore_cols) - len(time_idx))
+        self.lstm_pre_layer_norm = nn.LayerNorm(self.lstm_in)
 
         # We leverage an LSTM here to reduce to a single hidden state
         self.lstm = nn.LSTM(
-            input_size=model_dim,
+            input_size=self.lstm_in,  # when we're using the STEmbedding
             hidden_size=lstm_dim,
             num_layers=num_lstm_layers,
             batch_first=True
         )
+        self.lstm_post_layer_norm = nn.LayerNorm(lstm_dim)
 
+
+        self.tal = TemporalAttentionLayer(hidden_dim=lstm_dim, agg_dim=lstm_dim)
+        self.tal_layer_norm = nn.LayerNorm(2 * lstm_dim)
 
         # Linear output layers to classify the data
         self.linear = nn.Sequential(OrderedDict([
-            ("fc_1", nn.Linear(in_features=lstm_dim, out_features=mlp_dim)),  # This layer the grad drops to 0.2-0.25
+            ("fc_1", nn.Linear(in_features=2 * lstm_dim, out_features=mlp_dim)),
             ("fc_bn", nn.BatchNorm1d(mlp_dim)),
             ("fc_gelu", nn.GELU()),
             ("fc_drop", nn.Dropout(mlp_dropout)),
             ("fc_out", nn.Linear(in_features=mlp_dim, out_features=num_outputs))  # This layer has grad norms 0.3-0.4
         ]))
 
+        # Initialize the weights of the linear layer
+        nn.init.orthogonal_(self.linear[0].weight)
+        nn.init.orthogonal_(self.linear[4].weight)
+
         self.to(device)
 
     def forward(self, data):
         inputs = data.to(self.device)
-        embedded = self.embedding(inputs)
+        st_embedding = self.embedding(
+            inputs
+        )
         # embedded = self.layer_norm(embedded)
 
-        outputs = self.encoder_stack(embedded)
+        outputs = self.encoder_stack(st_embedding)
         # TODO: Investigate skip connection?
         # Can we norm here before the LSTM?
-        outputs = self.pre_lstm_layer_norm(outputs)
 
-        # outputs = outputs.reshape(inputs.shape[0], self.seq_len, -1)
+        outputs = outputs.reshape(inputs.shape[0], self.seq_len, -1)
+        outputs = self.lstm_pre_layer_norm(outputs)
+
         # Return a dummy tensor with the output shapes
-        _, (h_t, _) = self.lstm(outputs)
-        # TODO - add temporal attention layer
+        h_all, (h_t, _) = self.lstm(outputs)
+        # layer norm before the temporal attention layer
+        h_all_post_norm = self.lstm_post_layer_norm(h_all)
+
+        # TODO - add temporal attention layer, this might be really important based on the paper
+        tal = self.tal(h_all_post_norm)
+        # Layer norm before the linear layer
+        tal = self.tal_layer_norm(tal)
 
         # Apply a batch norm to the LSTM output
         # mlp_in = self.lstm_batch_norm(h_t[-1].squeeze(0))
         # Remember we have weird dims on h_t, so we can squeeze
-        outputs = self.linear(h_t[-1].squeeze(0))
-        # outputs = self.linear(mlp_in)
+        # outputs = self.linear(h_t[-1].squeeze(0))
+        outputs = self.linear(tal)
         return outputs

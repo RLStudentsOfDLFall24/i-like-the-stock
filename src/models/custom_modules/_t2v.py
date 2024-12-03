@@ -13,38 +13,41 @@ class T2V(nn.Module):
     n_frequencies: int
     """The number of frequencies to use in the output encoding."""
 
-    linear_block: nn.Module
+    periodic_block: nn.Module
     """The linear layer for initial projection"""
 
     def __init__(
             self,
-            input_dim: int,
-            n_frequencies: int
+            input_dim: int = 3,
+            n_frequencies: int = 64,
     ):
         super(T2V, self).__init__()
 
         self.input_dim = input_dim
         self.output_dim = n_frequencies
 
-        self.linear_block = nn.Sequential(OrderedDict([
-            ("linear", nn.Linear(input_dim, n_frequencies)),
-            ("norm1", nn.LayerNorm(n_frequencies)),
-            ("relu1", nn.GELU())
+        # We have one non-periodic component and k-1 periodic components
+        self.non_periodic_block = nn.Sequential(OrderedDict([
+            ("linear", nn.Linear(input_dim, 1)),
+        ]))
+        self.periodic_block = nn.Sequential(OrderedDict([
+            ("linear", nn.Linear(input_dim, n_frequencies - 1)),
         ]))
 
-    def forward(self, inputs, scaler: float = 1e8, log_t2v: bool = False):
+    def forward(self, inputs):
         """
-        Create the time2vec encoding for the input data.
+        Encode the input data using the t2v learned embedding.
 
         :param inputs: A batch of N x T x F_t, sequences of time based features.
-        :param scaler: A scaling factor for the input data.
-        :param log_t2v: Whether to log the time2vec encoding.
         :return: A batch of N x T x 2D encoding of the time feature data.
         """
+        # We're only using pretrained weights for year / month / day
+        assert inputs.shape[-1] == 3, "Only year / month / day are supported"
+
         # Batch multiply each time feature with the frequencies
-        outputs = self.linear_block(inputs)
-        periodic_out = torch.sin(outputs[:, :, 1:])
+        non_periodic = self.non_periodic_block(inputs)
+        periodics = torch.sin(self.periodic_block(inputs))
 
         # We only apply sin to the periodic components, i.e. the last k-1 components
-        outputs = torch.cat([outputs[:, :, :1], periodic_out], dim=-1)
+        outputs = torch.cat([non_periodic, periodics], dim=-1)
         return outputs
