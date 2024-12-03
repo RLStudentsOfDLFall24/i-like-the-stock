@@ -20,11 +20,26 @@ def simulate_trades(
             The commission fee applies to both buys/sells
     :return: A dataframe with historical value of the trades and cash.
     """
+    # Convert the time stamps to a pandas datetime index
+    timestamps = pd.to_datetime(timestamps, unit='s')
+    # Use this index to create a dataframe
+    df = pd.DataFrame(
+        {
+            "prices": prices,
+            "trades": trades,
+            "shares": np.zeros_like(prices),
+            "cash": np.zeros_like(prices)
+        },
+        index=timestamps
+    )
+    # Use loc to set the initial cash value
+    df.loc[timestamps[0], "cash"] = cash
+
     # assert prices.shape == trades.shape
     # TODO create a dataframe index from the timestamps
     # TODO put the prices, trades, cash in the dataframe
     # TODO iterate through the dates to compute the ending value
-    pass
+    return df  # TODO implement the simulation
 
 
 def get_long_short_trades(actions: np.array) -> np.ndarray:
@@ -108,9 +123,18 @@ def run():
     )
 
     # Compare against the stored time_idx for sanity
-    valid_indices_from_seq =( valid.features[:, -1, 0].detach().numpy() * 86400) + valid.t_0
+    valid_indices_from_seq = (valid.features[:, -1, 0].detach().numpy() * 86400) + valid.t_0
     are_close = np.allclose(valid_indices_from_seq, valid.time_idx.detach().numpy())
     print(f"Close? {are_close}")
+
+    # Test the trade simulation
+    dummy_trades = np.zeros_like(valid.time_idx)
+    dummy_trades[0] = 1 # We just buy on the first day and that's it
+    results = simulate_trades(
+        valid.unscaled_prices.detach().numpy(),
+        dummy_trades,
+        valid.time_idx.detach().numpy()
+    )
 
 if __name__ == '__main__':
     run()

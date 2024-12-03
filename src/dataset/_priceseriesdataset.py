@@ -47,6 +47,7 @@ class PriceSeriesDataset(Dataset):
             self,
             features: th.Tensor,
             targets: th.Tensor,
+            unscaled_prices: th.Tensor,
             price_features: list[int],
             close_idx: int = 5,
             seq_len: int = 10,
@@ -84,6 +85,7 @@ class PriceSeriesDataset(Dataset):
         # We subtract the first time value to get a relative time index starting at 0
         self.features = self.__create_seq_windows(features, seq_len, self.t_0)
         self.targets = targets[seq_len:]
+        self.unscaled_prices = unscaled_prices[seq_len:]
         self.feature_dim = self.features.shape[-1]
 
         _, target_counts = th.unique(targets, return_counts=True)
