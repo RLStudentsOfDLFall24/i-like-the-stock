@@ -7,11 +7,11 @@ import torch.nn.functional as f
 
 # noinspection PyShadowingBuiltins
 class FocalLoss(nn.Module):
-    def __init__(self, class_counts, gamma=0.0):
+    def __init__(self, class_counts, gamma: float = 2.0, beta: float = 0.9999):
         super().__init__()
         assert gamma >= 0
         self.gamma = gamma
-        self.weight = self.reweight(class_counts)
+        self.weight = self.reweight(class_counts, beta)
 
     def forward(self, input: th.tensor, target: th.tensor):
         """
