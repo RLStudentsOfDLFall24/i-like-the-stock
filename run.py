@@ -35,7 +35,8 @@ def run():
             seq_len = config_data[m.key]['seq_len']
             batch_size = config_data[m.key]['batch_size']
             print('Starting training for ', m)
-            run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
+            eval_res = run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
+            print('Avg Test Loss:',eval_res[3], '\nTest Accuracy:', eval_res[4], '\nF1:',eval_res[5], '\nPred Dist:',eval_res[6])
 
     if 'eval' in config_data['mode']:
         for m in models:

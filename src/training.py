@@ -183,6 +183,8 @@ def train_model(
         case _:
             raise ValueError(f"Unknown criterion: {crit_type}")
 
+    epochs = trainer_params['epochs']
+
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
@@ -208,9 +210,11 @@ def train_model(
         scheduler.step(v_loss_avg)
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        pb.set_description(
-            f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        pb.update(1)
+        #pb.set_description(
+        #    f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        #pb.update(1)
+        print(
+            f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
 
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc = evaluate(
