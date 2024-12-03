@@ -91,6 +91,7 @@ def get_long_short_trades(actions: np.array) -> np.ndarray:
 
 
 def run():
+    """A simple run script to test functionality"""
     time_steps = np.array([0, 1, 2, 3, 4])
     trades_t = np.zeros_like(time_steps)
     actions = np.array([0, 1, 1, 2])
@@ -106,7 +107,10 @@ def run():
         seq_len=10,
     )
 
-    print("here")
+    # Compare against the stored time_idx for sanity
+    valid_indices_from_seq =( valid.features[:, -1, 0].detach().numpy() * 86400) + valid.t_0
+    are_close = np.allclose(valid_indices_from_seq, valid.time_idx.detach().numpy())
+    print(f"Close? {are_close}")
 
 if __name__ == '__main__':
     run()
