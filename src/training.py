@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch as th
 from sklearn.metrics import f1_score
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -114,6 +114,7 @@ def evaluate(
 
 
 def train_model(
+        model: AbstractModel,
         x_dim: int,
         train_loader: DataLoader,
         valid_loader: DataLoader,
@@ -133,11 +134,13 @@ def train_model(
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
-    model = model_class(
-        d_features=x_dim,
-        device=device,
-        **model_params
-    )
+    if model is None:
+        model = model_class(
+            d_features=x_dim,
+            device=device,
+            **model_params
+        )
+
     # Set the optimizer
     match trainer_params['optimizer']:
         case "adam":
@@ -185,8 +188,8 @@ def train_model(
     train_losses = np.zeros(trainer_params['epochs'])
     valid_losses = np.zeros(trainer_params['epochs'])
 
-    pb = tqdm(total=trainer_params['epochs'], desc="Epochs")
-    for epoch in range(trainer_params['epochs']):
+    #pb = tqdm(total=epochs, desc="Epochs")
+    for epoch in range(epochs):
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         scheduler.step(train_loss)
@@ -216,36 +219,81 @@ def train_model(
         device=device
     )
 
-    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
+    return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist
 
 
-def run_experiment(model: AbstractModel, symbol: str, seq_len: int, batch_size: int, log_splits: bool = False, model_params = None, trainer_params=None):
+def run_experiment(model: AbstractModel, train_symbols: list[str],
+                   target_symbol: str, seq_len: int, batch_size: int,
+                   log_splits: bool = False, model_params = None,
+                   trainer_params=None, split: float = 0):
     """
-    Load the data symbol and create PriceSeriesDatasets.
+    Load the data symbols and create PriceSeriesDatasets.
 
-    The symbol data is loaded into PriceSeriesDatasets, augmented with indicators
+    The symbols data is loaded into PriceSeriesDatasets, augmented with indicators
     and then partitioned into train, validation, and test sets. The data are then
     wrapped in DataLoader objects for use in training and evaluation loops.
 
-    :param symbol: The symbol to load
+    :param symbols: The symbols to load
     :param seq_len: The sequence length to use
     :param batch_size: The batch size to use for DataLoader
     :param log_splits: Whether to log the target distribution
     :param model_params: Additional arguments for the model
     """
-    train_data, valid_data, test_data = create_datasets(
-        symbol,
-        seq_len=seq_len,
-        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-        log_splits=log_splits
+
+    trains = []
+    target_train = None
+    target_valid = None
+    target_test = None
+
+    for symbol in train_symbols:
+        train_data, valid_data, test_data = create_datasets(
+            symbol,
+            seq_len=seq_len,
+            fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+            log_splits=log_splits
+        )
+
+        trains.append(train_data)
+        if symbol == target_symbol:
+            target_train = train_data
+            target_valid = valid_data
+            target_test = test_data
+
+    concatted_trains = ConcatDataset(trains)
+
+    train_loader = DataLoader(concatted_trains, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(target_valid, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(target_test, batch_size=batch_size, shuffle=False)
+
+
+    train_label_ct = th.sum(th.stack([x.target_counts for x in trains]),dim=0)
+    #train_label_ct = concatted_trains.target_counts
+
+    epochs = trainer_params['epochs']
+    trainer_params['epochs'] = int(split*epochs)
+
+
+    pretrain = train_model(
+        model=None,
+        x_dim=train_data[0][0].shape[1],
+        train_loader=train_loader,
+        valid_loader=valid_loader,
+        test_loader=test_loader,
+        train_label_ct=train_label_ct,
+        model_class=model,
+        model_params=model_params, 
+        trainer_params=trainer_params
     )
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
-    train_label_ct = train_data.target_counts
+
+    trainer_params['epochs'] = int((1-split)*epochs)
+    train_loader = DataLoader(target_train, batch_size=batch_size, shuffle=True)
+    train_label_ct = target_train.target_counts
+    trainer_params['lr'] = trainer_params['lr'] * trainer_params['fine_tune_lr_ratio']
 
 
+    #finetune
     return train_model(
+        model=pretrain[0],
         x_dim=train_data[0][0].shape[1],
         train_loader=train_loader,
         valid_loader=valid_loader,
