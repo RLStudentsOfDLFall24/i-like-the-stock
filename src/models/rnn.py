@@ -12,7 +12,8 @@ class RNN(AbstractModel):
                  seq_len: int,
                  num_layers: int,
                  dropout: float,
-                 device: torch.device):
+                 device: torch.device,
+                 **kwargs):
         super(RNN, self).__init__(batch_size=batch_size)
 
         self.model = nn.RNN(input_size=d_features,

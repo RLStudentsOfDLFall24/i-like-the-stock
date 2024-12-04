@@ -26,14 +26,15 @@ def get_activation_function(activation):
 # this source is derived from the paper's algorithm, this walkthrough: https://github.com/KPEKEP/LTCtutorial/blob/main/LNN_LTC_Tutorial_Eng.ipynb
 # and the original source from the paper found here: https://github.com/raminmh/liquid_time_constant_networks
 class LNN(AbstractModel):
-    def __init__(self, batch_size, input_size, hidden_size, output_size, n_layers=6, activation='relu', eps=1e-8, device='cpu', is_affine=True):
+    def __init__(self, batch_size, d_features, hidden_size, output_size, n_layers=6, activation='relu', eps=1e-8, device='cpu', is_affine=True,
+                 **kwargs):
         super(LNN, self).__init__(batch_size=batch_size)
         self.step_size = 1 / n_layers
 
         self.activation = get_activation_function(activation)
 
         self.hidden_size = hidden_size
-        self.input_size = input_size
+        self.input_size = d_features
         self.output_size = output_size
         self.n_layers = n_layers
         self.epsilon = eps

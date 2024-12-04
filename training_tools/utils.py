@@ -90,6 +90,7 @@ def plot_results(tr_loss, v_loss, epochs, y_lims=(0.0, 2.0), root='.', image_nam
 
 def plot_simulation_result(
         sim_df: pd.DataFrame,
+        fig_title: str = 'Simulation Results',
         fig_name: str = 'unknown',
         root: str = '.'
 ):
@@ -103,11 +104,11 @@ def plot_simulation_result(
         y=sim_df.columns,
         ax=ax
     )
-    ax.set_title(f"Simulation Results: {fig_name}", fontsize=18)
+    ax.set_title(fig_title, fontsize=18)
     ax.set_xlabel("Date", fontsize=14)
     ax.set_ylabel("Normalized Value", fontsize=14)
     ax.grid(True)
-    ax.legend(loc='lower left', fontsize=12)
+    ax.legend(loc='best', fontsize=12)
     # Plot a light grey dashed line at y=1.0
     ax.axhline(y=1.0, color='grey', linestyle='--', alpha=0.5)
 

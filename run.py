@@ -1,11 +1,15 @@
 from collections import namedtuple
+
+import pandas as pd
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
 from src.training import run_experiment
+from training_tools.utils import plot_simulation_result
 
 import yaml
+
 
 MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
@@ -42,8 +46,16 @@ def run():
             sim_results.append(eval_res[8])
         # TODO - merge all sim_results and plot them using utility
         # sim_results will have 3 dataframes with 2 columns each. we want a new dataframe with the first column from each and the same index
-        print("here")
+        sim_df = pd.concat(sim_results, axis=1)
+        not_dupes = ~sim_df.columns.duplicated()
+        sim_df = sim_df.loc[:, not_dupes]
 
+        # pull in the util
+        plot_simulation_result(
+            sim_df,
+            fig_title=f"Simulation Results for {symbol}",
+            fig_name=f"all_models_{symbol}",
+        )
 
     if 'eval' in config_data['mode']:
         for m in models:

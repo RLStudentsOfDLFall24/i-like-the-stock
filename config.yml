@@ -4,8 +4,8 @@ mode:
 
 model_types:
   - rnn
-  - transformer
-  #- lnn
+#  - transformer
+#  - lnn
 
 global_params:
   symbol: "atnf"
@@ -14,13 +14,13 @@ global_params:
 rnn:
   batch_size: 10
   hidden_size: 32
-  seq_len: 50
+  seq_len: 30
   dropout: 0.2
   num_layers: 1
   num_outputs: 3
 
 rnn_trainer:
-  epochs: 30
+  epochs: 300
   lr: 5.e-6
   optimizer: 
     name: "adam"
@@ -38,6 +38,8 @@ lnn:
   n_layers: 6
   hidden_size: 32
   activation: sigmoid
+  seq_len: 20
+  output_size: 3
 
 lnn_trainer:
   epochs: 200
@@ -55,7 +57,7 @@ lnn_trainer:
 
 transformer:
   batch_size: 128
-  seq_len: 30
+  seq_len: 20
   model_dim: 64
   ignore_cols:
     - 0
@@ -75,7 +77,7 @@ transformer:
   pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
 
 transformer_trainer:
-  epochs: 2
+  epochs: 200
   lr: 1.e-5
   optimizer: 
     name: "adam"
