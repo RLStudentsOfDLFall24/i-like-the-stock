@@ -9,7 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from src import create_datasets
 from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
-from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results, plot_simulation_result
+from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results, \
+    plot_simulation_result
 
 
 def train_model(
@@ -110,23 +111,7 @@ def train_model(
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
 
-        # # TODO clean this up and move to utils for the visualization
-        # fig, ax = plt.subplots()
-        # sim_df.plot(
-        #     ax=ax,
-        #     y=["value", "price"],
-        #     label=["Value", f"{model_params['symbol']} Normalized"]
-        # )
-        # # Add a dashed line at y = 1.0
-        # ax.axhline(1.0, color='k', linestyle='--')
-        # ax.set_xlabel("Date")
-        # ax.set_ylabel("Normalized Value")
-        # ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
-        # plt.savefig(f"{model_params['symbol']}_sim_results.png")
-        # plt.tight_layout()
-        #
-        # writer.add_figure("Simulation/Results", fig, global_step=epochs)
-        # # We can also compute cumulative returns and add that to the tensorboard
+        # We can also compute cumulative returns and add that to the tensorboard
         cum_ret = (sim_df[model_name].iloc[-1] - sim_df[model_name].iloc[0]) / sim_df[model_name].iloc[0]
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
@@ -253,7 +238,12 @@ def run_grid_search(
         plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root,
                      image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
         # Plot the simulation results
-        plot_simulation_result(sim, f"{trial_prefix}_{trial:03}", root)
+        plot_simulation_result(
+            sim,
+            fig_title=f"Simulation Results for {config['symbol']}|{trial:03}",
+            fig_name=f"{trial_prefix}_{trial:03}",
+            root=root
+        )
 
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
