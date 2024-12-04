@@ -36,6 +36,7 @@ def run():
             batch_size = config_data[m.key]['batch_size']
             print('Starting training for ', m)
             eval_res = run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
+            # TODO Look at the eval_res and see if we can save all the sim_df frames to plot all test simulations together
             print('Avg Test Loss:',eval_res[3], '\nTest Accuracy:', eval_res[4], '\nF1:',eval_res[5], '\nPred Dist:',eval_res[6])
 
     if 'eval' in config_data['mode']:

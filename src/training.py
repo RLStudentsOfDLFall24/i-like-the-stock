@@ -3,14 +3,13 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch as th
-from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from src import create_datasets
 from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
-from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results
+from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results, plot_simulation_result
 
 
 def train_model(
@@ -24,7 +23,7 @@ def train_model(
         model_params: dict = None,
         trainer_params: dict = None,
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
     epochs: int = trainer_params['epochs']
@@ -94,6 +93,14 @@ def train_model(
         device=device,
         simulate=True
     )
+    # rename the value column to be the model type
+    model_name = model.__class__.__name__[0:3]
+    sim_df.rename(
+        columns={"value": model_name, "price": model_params['symbol']},
+        inplace=True
+    )
+    # Add first three characters of the model name to the DataFrame
+    # sim_df["model"] = model.__class__.__name__[0:3]
 
     if writer is not None:
         writer.add_scalar("Loss/test", test_loss_avg, epochs)
@@ -101,27 +108,27 @@ def train_model(
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
 
-        # TODO clean this up and move to utils for the visualization
-        fig, ax = plt.subplots()
-        sim_df.plot(
-            ax=ax,
-            y=["value", "price"],
-            label=["Value", f"{model_params['symbol']} Normalized"]
-        )
-        # Add a dashed line at y = 1.0
-        ax.axhline(1.0, color='k', linestyle='--')
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Normalized Value")
-        ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
-        plt.savefig(f"{model_params['symbol']}_sim_results.png")
-        plt.tight_layout()
-
-        writer.add_figure("Simulation/Results", fig, global_step=epochs)
-        # We can also compute cumulative returns and add that to the tensorboard
-        cum_ret = (sim_df["value"].iloc[-1] - sim_df["value"].iloc[0]) / sim_df["value"].iloc[0]
+        # # TODO clean this up and move to utils for the visualization
+        # fig, ax = plt.subplots()
+        # sim_df.plot(
+        #     ax=ax,
+        #     y=["value", "price"],
+        #     label=["Value", f"{model_params['symbol']} Normalized"]
+        # )
+        # # Add a dashed line at y = 1.0
+        # ax.axhline(1.0, color='k', linestyle='--')
+        # ax.set_xlabel("Date")
+        # ax.set_ylabel("Normalized Value")
+        # ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
+        # plt.savefig(f"{model_params['symbol']}_sim_results.png")
+        # plt.tight_layout()
+        #
+        # writer.add_figure("Simulation/Results", fig, global_step=epochs)
+        # # We can also compute cumulative returns and add that to the tensorboard
+        cum_ret = (sim_df[model_name].iloc[-1] - sim_df[model_name].iloc[0]) / sim_df[model_name].iloc[0]
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
-    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc
+    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df
 
 
 def run_experiment(
@@ -134,7 +141,7 @@ def run_experiment(
         trainer_params: dict = None,
         root: str = ".",
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """
     Load the data symbol and create PriceSeriesDatasets.
 
@@ -160,6 +167,7 @@ def run_experiment(
         - test_f1: The test F1 score
         - test_pred_dist: The test prediction distribution
         - mcc: The test Matthews correlation coefficient
+        - sim_df: The simulation results DataFrame
     """
     th.manual_seed(1984)
 
@@ -229,7 +237,7 @@ def run_grid_search(
         criterion = config['trainer_params']['criterion']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
-        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc = (run_experiment
+        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim = (run_experiment
             (
             model=model_type,
             log_splits=trial == 0,
@@ -241,6 +249,8 @@ def run_grid_search(
         print_target_distribution([("Test", tst_pred_dist)])
         plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root,
                      image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
+        # Plot the simulation results
+        plot_simulation_result(sim, f"{trial_prefix}_{trial:03}", root)
 
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
