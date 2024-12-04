@@ -3,6 +3,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch as th
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -10,115 +11,7 @@ from src import create_datasets
 from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
 from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results
-from src.simulation import simulate_trades
-#
-# def train(
-#         model,
-#         dataloader,
-#         optimizer,
-#         criterion,
-#         device: th.device,
-#         epoch,
-#         writer: SummaryWriter = None
-# ) -> tuple[float, float]:
-#     """
-#     Train the model on the given dataloader and return the losses for each batch.
-#
-#     :param model:
-#     :param dataloader:
-#     :param optimizer:
-#     :param criterion:
-#     :param device:
-#     :param epoch:
-#     :param writer:
-#     :return:
-#     """
-#     model.train()
-#
-#     # Initialize the loss
-#     losses = np.zeros(len(dataloader))
-#
-#     for ix, data in enumerate(dataloader):
-#         x = data[0].to(device)
-#         y = data[1].to(device)
-#
-#         optimizer.zero_grad()
-#         logits = model(x)
-#         # If we only have one output, we need to unsqueeze the y tensor
-#         if len(logits.shape) == 1:
-#             logits = logits.unsqueeze(0)
-#
-#         loss = criterion(logits, y)
-#
-#         loss.backward()
-#         th.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-#         optimizer.step()
-#
-#         if writer is not None:
-#             # Log gradients at the end of the epoch
-#             for l, (name, param) in enumerate(model.named_parameters()):
-#                 if param.grad is not None:
-#                     writer.add_scalar(f"Gradients/{l:02}_{name}", param.grad.norm().item(),
-#                                       epoch * len(dataloader) + ix)
-#
-#         # Update loss
-#         losses[ix] = loss.item()
-#
-#     return losses.sum(), losses.mean()
-#
-#
-# def evaluate(
-#         model,
-#         dataloader,
-#         criterion,
-#         device: th.device = 'cpu',
-#         simulate: bool = False
-# ) -> tuple[float, float, float, float, th.Tensor, float, pd.DataFrame | None]:
-#     # Set the model to evaluation
-#     model.eval()
-#     # total_loss = 0.0
-#
-#     losses = np.zeros(len(dataloader))
-#     accuracies = np.zeros(len(dataloader))
-#
-#     all_preds = []
-#     all_labels = []
-#     with th.no_grad():
-#         for ix, data in enumerate(dataloader):
-#             x = data[0].to(device)
-#             y = data[1].to(device)
-#
-#             logits = model(x)
-#             # Get the argmax of the logits
-#             preds = th.argmax(logits, dim=1)
-#             all_preds.append(preds)
-#             all_labels.append(y)
-#
-#             losses[ix] = criterion(logits, y).item()
-#             accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
-#
-#     # concat the preds and labels, then send to cpu
-#     all_preds = th.cat(all_preds).cpu()
-#     all_labels = th.cat(all_labels).cpu()
-#
-#     # We can use the simulation code to produce a results figure
-#     data = dataloader.dataset
-#     if simulate:
-#         results_df = simulate_trades(
-#             data.unscaled_prices.detach().cpu().numpy(),
-#             all_preds.numpy(),
-#             data.time_idx.detach().cpu().numpy()
-#         )
-#
-#     classes, counts = th.unique(all_preds, return_counts=True)
-#     pred_dist = th.zeros(3)
-#     pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
-#
-#     f1_weighted = f1_score(all_labels, all_preds, average='weighted')
-#     mcc = matthews_corrcoef(all_labels, all_preds)
-#
-#     return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist, mcc, results_df if simulate else None
-#
+
 
 def train_model(
         x_dim: int,
@@ -134,7 +27,7 @@ def train_model(
 ) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
-    epochs = trainer_params['epochs']
+    epochs: int = trainer_params['epochs']
     opt_type = trainer_params['optimizer']['name']
     lr = trainer_params['lr']
     crit_type = trainer_params['criterion']['name']
@@ -146,17 +39,20 @@ def train_model(
         **model_params
     )
     # Set the optimizer
-    optimizer = get_optimizer(opt_type, lr, trainer_params['optimizer']['config'])
+    optimizer = get_optimizer(
+        opt_type,
+        model=model,
+        lr=lr,
+        config=trainer_params['optimizer']['config']
+    )
 
     # Set the scheduler
     scheduler = get_scheduler(trainer_params['scheduler']['name'], optimizer,
-                              config=trainer_params['scheduler']['config'] if 'config' in trainer_params['scheduler'] else {})
+                              config=trainer_params['scheduler']['config'] if 'config' in trainer_params[
+                                  'scheduler'] else {})
 
     # Set the criterion
     criterion = get_criterion(crit_type, train_label_ct, trainer_params, device)
-
-    epochs = trainer_params['epochs']
-
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
@@ -165,7 +61,6 @@ def train_model(
         # Run training over the batches
         _, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         # Evaluate the validation set
-        # _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc = evaluate(model, valid_loader, criterion, device=device)
         _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc, _ = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
@@ -191,7 +86,6 @@ def train_model(
         # pb.set_description(
         #     f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
         # pb.update(1)
-
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df = evaluate(
         model,
@@ -219,6 +113,7 @@ def train_model(
         ax.set_xlabel("Date")
         ax.set_ylabel("Normalized Value")
         ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
+        plt.savefig(f"{model_params['symbol']}_sim_results.png")
         plt.tight_layout()
 
         writer.add_figure("Simulation/Results", fig, global_step=epochs)
@@ -344,7 +239,8 @@ def run_grid_search(
         ))
 
         print_target_distribution([("Test", tst_pred_dist)])
-        plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root, image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
+        plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root,
+                     image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
 
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
@@ -354,7 +250,6 @@ def run_grid_search(
         results_dict["test_f1"].append(tst_f1)
         results_dict["test_mcc"].append(tst_mcc)
         results_dict["test_pred_dist"].append([round(x.item(), 3) for x in tst_pred_dist])
-
 
         # Iterate over the config and append the values to the dictionary
         for key, value in config["trainer_params"].items():

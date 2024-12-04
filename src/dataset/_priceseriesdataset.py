@@ -30,6 +30,9 @@ class PriceSeriesDataset(Dataset):
     feature_dim: int
     """The size of a single feature vector in the dataset"""
 
+    unscaled_prices: th.Tensor
+    """The unscaled prices of the dataset"""
+
     t_0: float
     """The first time value in the dataset, a UNIX timestamp"""
 

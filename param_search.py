@@ -8,13 +8,14 @@ from src.training import run_grid_search
 def run_st_grid_search():
     root = os.getcwd()
     t2v_weights = f"t2v_n64_mlp1024_lr6.310e-05"
-    ctx_size = [10, 20]
+    # ctx_size = [10, 20]
+    ctx_size = [20]
     d_models = [64]
     batch_sizes = [128]
     l_rates = [1e-5]
     fc_dims = [512]
     fc_dropouts = [0.1]
-    mlp_dims = [1024, 2048]
+    mlp_dims = [1024]
     mlp_dropouts = [0.3]
     n_freqs = [64]
     num_encoders = [3]
@@ -30,11 +31,22 @@ def run_st_grid_search():
             "seq_len": ctx,
             "batch_size": bs,
             "trainer_params": {
-                "criterion": "cb_focal",
-                "scheduler": "plateau",
-                "optimizer": "adam",
+                "criterion": {
+                    "name": "cb_focal",
+                },
+                "scheduler": {
+                    "name": "plateau",
+                },
+                "optimizer": {
+                    "name": "adam",
+                    "config":{
+                        "eps": 1e-8,
+                        "weight_decay": 1e-3,
+                        "betas": [0.9, 0.99]
+                    }
+                },
                 "lr": lr,
-                "epochs": 200,
+                "epochs": 10,
                 "cbf_gamma": 1.0,
                 "cbf_beta": 0.99,
             },

@@ -78,7 +78,7 @@ def plot_results(tr_loss, v_loss, epochs, y_lims=(0.0, 2.0), root = '.', image_n
     plt.legend()
     plt.tight_layout()
     if image_name is not None:
-        plt.savefig(f"../figures/{image_name}.png")
+        plt.savefig(f"{root}/figures/{image_name}.png")
     else:
       plt.show()
     plt.close()
