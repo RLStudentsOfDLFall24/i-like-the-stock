@@ -3,7 +3,7 @@ mode:
   - eval
 
 model_types:
-#  - rnn
+  - rnn
   - transformer
   #- lnn
 
@@ -14,13 +14,13 @@ global_params:
 rnn:
   batch_size: 10
   hidden_size: 32
-  seq_len: 30
+  seq_len: 50
   dropout: 0.2
   num_layers: 1
   num_outputs: 3
 
 rnn_trainer:
-  epochs: 300
+  epochs: 30
   lr: 5.e-6
   optimizer: 
     name: "adam"
@@ -30,7 +30,8 @@ rnn_trainer:
       weight_decay: 1.e-3
   scheduler:
     name: 'plateau'
-  criterion: "ce"
+  criterion:
+    name: "ce"
 
 lnn:
   batch_size: 16
@@ -49,28 +50,33 @@ lnn_trainer:
       weight_decay: 1.e-3
   scheduler:
     name: 'plateau'
-  criterion: 'ce'
+  criterion:
+    name: 'ce'
 
 transformer:
-  batch_size: 64
+  batch_size: 128
   seq_len: 30
   model_dim: 64
-  time_idx:
+  ignore_cols:
     - 0
+  time_idx:
     - 6
     - 7
     - 8
-  fc_dim: 1024
-  fc_dropout: 0.3
-  n_frequencies: 16
-  num_encoders: 4
-  num_heads: 4
+  fc_dim: 512
+  fc_dropout: 0.1
+  mlp_dim: 2048
+  mlp_dropout: 0.3
+  n_frequencies: 64
+  num_encoders: 3
+  num_heads: 8
   num_lstm_layers: 2
-  lstm_dim: 128
+  lstm_dim: 256
+  pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
 
 transformer_trainer:
-  epochs: 10
-  lr: 5.e-6
+  epochs: 2
+  lr: 1.e-5
   optimizer: 
     name: "adam"
     config:
@@ -79,4 +85,7 @@ transformer_trainer:
       weight_decay: 1.e-3
   scheduler:
     name: 'plateau'
-  criterion: "cb_focal"  # Class Balanced Focal Loss
+  criterion:
+    name: "cb_focal"  # Class Balanced Focal Loss
+  cbf_gamma: 1.0
+  cbf_beta: 0.99

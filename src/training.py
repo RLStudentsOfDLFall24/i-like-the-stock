@@ -22,6 +22,7 @@ def train_model(
         writer: SummaryWriter = None,
         model_params: dict = None,
         trainer_params: dict = None,
+        symbol: str = "default",
         **kwargs
 ) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """Train a model and test the methods"""
@@ -96,9 +97,10 @@ def train_model(
     # rename the value column to be the model type
     model_name = model.__class__.__name__[0:3]
     sim_df.rename(
-        columns={"value": model_name, "price": model_params['symbol']},
+        columns={"value": model_name, "price": symbol},
         inplace=True
     )
+
     # Add first three characters of the model name to the DataFrame
     # sim_df["model"] = model.__class__.__name__[0:3]
 
@@ -192,6 +194,7 @@ def run_experiment(
         model_class=model,
         model_params=model_params,
         trainer_params=trainer_params,
+        symbol=symbol,
         **kwargs
     )
 

@@ -31,6 +31,7 @@ def run():
         log_splits = config_data['global_params']['log_splits']
         symbol = config_data['global_params']['symbol']
 
+        sim_results = []
         for m in models:
             seq_len = config_data[m.key]['seq_len']
             batch_size = config_data[m.key]['batch_size']
@@ -38,6 +39,11 @@ def run():
             eval_res = run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
             # TODO Look at the eval_res and see if we can save all the sim_df frames to plot all test simulations together
             print('Avg Test Loss:',eval_res[3], '\nTest Accuracy:', eval_res[4], '\nF1:',eval_res[5], '\nPred Dist:',eval_res[6])
+            sim_results.append(eval_res[8])
+        # TODO - merge all sim_results and plot them using utility
+        # sim_results will have 3 dataframes with 2 columns each. we want a new dataframe with the first column from each and the same index
+        print("here")
+
 
     if 'eval' in config_data['mode']:
         for m in models:

@@ -22,28 +22,13 @@ from src.indicators import compute_sma, compute_ema, compute_pct_b, compute_macd
     compute_relative_volume
 
 
-def get_ts_range(
-        start_date: str,
-        end_date: str,
-        start_offset: int = 0
-                        ) -> tuple[float, float]:
+def get_ts_ix(timestamps: th.Tensor, date: str) -> int:
     """
-    Convert the start and end dates to timestamps and return the range.
-    You may optionally provide an end_offset to adjust the starting timestamp.
-    This may be applicable for sequence based tasks where we can assume we have
-    the historical data for t-k for some sequence length k and we're looking to
-    predict t+1.
-    Note: Start date offset is relative, therefore you may provide either positive
-    or negative values to adjust the start date.
-    :param start_date: The start date for the range, the first date to predict.
-    :param end_date: The end date for the range, the last date to predict.
-    :param start_offset: An optional offset to adjust the start date.
-    :return: A tuple of the start and end timestamps for the range.
+    Get the argument index for the first date relative to the date provided.
     """
-    start_date = datetime.fromisoformat(start_date) + timedelta(days=start_offset)
-    end_date = datetime.fromisoformat(end_date)
-
-    return start_date.timestamp(), end_date.timestamp()
+    date = datetime.fromisoformat(date)
+    end_idx = th.argwhere(timestamps >= date.timestamp())[0].item()
+    return end_idx
 
 def print_target_distribution(distributions: list[tuple[str, th.Tensor]]):
     """
@@ -156,21 +141,22 @@ def create_splits(
     :param log_splits: Whether to log the split counts.
     :return: A tuple of DataLoader objects for the train, valid, and test sets.
     """
-    # Train data will start without any offset
-    train_start_ts, train_end_ts = get_ts_range(train_start, valid_start)
+    # Get training start and end indices
+    tr_ix = get_ts_ix(features[:, 0], train_start)
+    tr_eix = get_ts_ix(features[:, 0], valid_start)
 
-    # We want to predict 6 month window, so we use t-k as the first date
-    valid_start_ts, valid_end_ts = get_ts_range(valid_start, test_start, start_offset=-seq_len)
-    test_start_ts, test_end_ts = get_ts_range(test_start, test_end, start_offset=-seq_len)
+    # Get validation start and end indices
+    v_ix = tr_eix - seq_len + 1
+    v_eix = get_ts_ix(features[:, 0], test_start)
 
-    # Split the targets
-    train_mask = (features[:, 0] >= train_start_ts) & (features[:, 0] < train_end_ts)
-    valid_mask = (features[:, 0] >= valid_start_ts) & (features[:, 0] < valid_end_ts)
-    test_mask = (features[:, 0] >= test_start_ts) & (features[:, 0] <= test_end_ts)
+    # Get test start and end indices
+    tst_ix = v_eix - seq_len + 1
+    tst_eix = get_ts_ix(features[:, 0], test_end)
 
-    x_train, y_train = features[train_mask], targets[train_mask]
-    x_valid, y_valid = features[valid_mask], targets[valid_mask]
-    x_test, y_test = features[test_mask], targets[test_mask]
+    # Split on the indices
+    x_train, y_train = features[tr_ix:tr_eix], targets[tr_ix:tr_eix]
+    x_valid, y_valid = features[v_ix:v_eix], targets[v_ix:v_eix]
+    x_test, y_test = features[tst_ix:tst_eix+1], targets[tst_ix:tst_eix+1]
 
     t_0 = x_train[0, 0].item()
     price_features = [1, 2, 3, 4, 5] if price_features is None else price_features
