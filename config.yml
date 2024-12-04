@@ -22,19 +22,34 @@ rnn:
 rnn_trainer:
   epochs: 300
   lr: 5.e-6
-  optimizer: "adam"
-  scheduler: "plateau"
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-8
+      betas: [0.9, 0.99]
+      weight_decay: 1.e-3
+  scheduler:
+    name: 'plateau'
   criterion: "ce"
 
 lnn:
-  batch_size: 10
+  batch_size: 16
+  n_layers: 6
+  hidden_size: 32
+  activation: sigmoid
 
 lnn_trainer:
-  epochs: 10
-  lr: 5.e-6
-  optimizer: "adam"
-  scheduler: "plateau"
-  criterion: "cb_focal"  # Class Balanced Focal Loss
+  epochs: 200
+  lr: 1.e-3
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-8
+      betas: [0.9, 0.99]
+      weight_decay: 1.e-3
+  scheduler:
+    name: 'plateau'
+  criterion: 'ce'
 
 transformer:
   batch_size: 64
@@ -56,6 +71,12 @@ transformer:
 transformer_trainer:
   epochs: 10
   lr: 5.e-6
-  optimizer: "adam"
-  scheduler: "plateau"
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-8
+      betas: [0.9, 0.99]
+      weight_decay: 1.e-3
+  scheduler:
+    name: 'plateau'
   criterion: "cb_focal"  # Class Balanced Focal Loss
