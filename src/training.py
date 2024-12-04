@@ -1,128 +1,124 @@
-import os
 from datetime import datetime
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch as th
-from sklearn.metrics import f1_score, matthews_corrcoef
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
 
 from src import create_datasets
-from src.cbfocal_loss import FocalLoss
 from src.dataset import print_target_distribution
 from src.models.abstract_model import AbstractModel
+from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results
 from src.simulation import simulate_trades
-
-def train(
-        model,
-        dataloader,
-        optimizer,
-        criterion,
-        device: th.device,
-        epoch,
-        writer: SummaryWriter = None
-) -> tuple[float, float]:
-    """
-    Train the model on the given dataloader and return the losses for each batch.
-
-    :param model:
-    :param dataloader:
-    :param optimizer:
-    :param criterion:
-    :param device:
-    :param epoch:
-    :param writer:
-    :return:
-    """
-    model.train()
-
-    # Initialize the loss
-    losses = np.zeros(len(dataloader))
-
-    for ix, data in enumerate(dataloader):
-        x = data[0].to(device)
-        y = data[1].to(device)
-
-        optimizer.zero_grad()
-        logits = model(x)
-        # If we only have one output, we need to unsqueeze the y tensor
-        if len(logits.shape) == 1:
-            logits = logits.unsqueeze(0)
-
-        loss = criterion(logits, y)
-
-        loss.backward()
-        th.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-
-        if writer is not None:
-            # Log gradients at the end of the epoch
-            for l, (name, param) in enumerate(model.named_parameters()):
-                if param.grad is not None:
-                    writer.add_scalar(f"Gradients/{l:02}_{name}", param.grad.norm().item(),
-                                      epoch * len(dataloader) + ix)
-
-        # Update loss
-        losses[ix] = loss.item()
-
-    return losses.sum(), losses.mean()
-
-
-def evaluate(
-        model,
-        dataloader,
-        criterion,
-        device: th.device = 'cpu',
-        simulate: bool = False
-) -> tuple[float, float, float, float, th.Tensor, float, pd.DataFrame | None]:
-    # Set the model to evaluation
-    model.eval()
-    # total_loss = 0.0
-
-    losses = np.zeros(len(dataloader))
-    accuracies = np.zeros(len(dataloader))
-
-    all_preds = []
-    all_labels = []
-    with th.no_grad():
-        for ix, data in enumerate(dataloader):
-            x = data[0].to(device)
-            y = data[1].to(device)
-
-            logits = model(x)
-            # Get the argmax of the logits
-            preds = th.argmax(logits, dim=1)
-            all_preds.append(preds)
-            all_labels.append(y)
-
-            losses[ix] = criterion(logits, y).item()
-            accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
-
-    # concat the preds and labels, then send to cpu
-    all_preds = th.cat(all_preds).cpu()
-    all_labels = th.cat(all_labels).cpu()
-
-    # We can use the simulation code to produce a results figure
-    data = dataloader.dataset
-    if simulate:
-        results_df = simulate_trades(
-            data.unscaled_prices.detach().cpu().numpy(),
-            all_preds.numpy(),
-            data.time_idx.detach().cpu().numpy()
-        )
-
-    classes, counts = th.unique(all_preds, return_counts=True)
-    pred_dist = th.zeros(3)
-    pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
-
-    f1_weighted = f1_score(all_labels, all_preds, average='weighted')
-    mcc = matthews_corrcoef(all_labels, all_preds)
-
-    return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist, mcc, results_df if simulate else None
-
+#
+# def train(
+#         model,
+#         dataloader,
+#         optimizer,
+#         criterion,
+#         device: th.device,
+#         epoch,
+#         writer: SummaryWriter = None
+# ) -> tuple[float, float]:
+#     """
+#     Train the model on the given dataloader and return the losses for each batch.
+#
+#     :param model:
+#     :param dataloader:
+#     :param optimizer:
+#     :param criterion:
+#     :param device:
+#     :param epoch:
+#     :param writer:
+#     :return:
+#     """
+#     model.train()
+#
+#     # Initialize the loss
+#     losses = np.zeros(len(dataloader))
+#
+#     for ix, data in enumerate(dataloader):
+#         x = data[0].to(device)
+#         y = data[1].to(device)
+#
+#         optimizer.zero_grad()
+#         logits = model(x)
+#         # If we only have one output, we need to unsqueeze the y tensor
+#         if len(logits.shape) == 1:
+#             logits = logits.unsqueeze(0)
+#
+#         loss = criterion(logits, y)
+#
+#         loss.backward()
+#         th.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+#         optimizer.step()
+#
+#         if writer is not None:
+#             # Log gradients at the end of the epoch
+#             for l, (name, param) in enumerate(model.named_parameters()):
+#                 if param.grad is not None:
+#                     writer.add_scalar(f"Gradients/{l:02}_{name}", param.grad.norm().item(),
+#                                       epoch * len(dataloader) + ix)
+#
+#         # Update loss
+#         losses[ix] = loss.item()
+#
+#     return losses.sum(), losses.mean()
+#
+#
+# def evaluate(
+#         model,
+#         dataloader,
+#         criterion,
+#         device: th.device = 'cpu',
+#         simulate: bool = False
+# ) -> tuple[float, float, float, float, th.Tensor, float, pd.DataFrame | None]:
+#     # Set the model to evaluation
+#     model.eval()
+#     # total_loss = 0.0
+#
+#     losses = np.zeros(len(dataloader))
+#     accuracies = np.zeros(len(dataloader))
+#
+#     all_preds = []
+#     all_labels = []
+#     with th.no_grad():
+#         for ix, data in enumerate(dataloader):
+#             x = data[0].to(device)
+#             y = data[1].to(device)
+#
+#             logits = model(x)
+#             # Get the argmax of the logits
+#             preds = th.argmax(logits, dim=1)
+#             all_preds.append(preds)
+#             all_labels.append(y)
+#
+#             losses[ix] = criterion(logits, y).item()
+#             accuracies[ix] = th.sum(th.argmax(logits, dim=1) == y).item() / y.shape[0]
+#
+#     # concat the preds and labels, then send to cpu
+#     all_preds = th.cat(all_preds).cpu()
+#     all_labels = th.cat(all_labels).cpu()
+#
+#     # We can use the simulation code to produce a results figure
+#     data = dataloader.dataset
+#     if simulate:
+#         results_df = simulate_trades(
+#             data.unscaled_prices.detach().cpu().numpy(),
+#             all_preds.numpy(),
+#             data.time_idx.detach().cpu().numpy()
+#         )
+#
+#     classes, counts = th.unique(all_preds, return_counts=True)
+#     pred_dist = th.zeros(3)
+#     pred_dist[classes] = counts / counts.sum()  # Are we abusing common class?
+#
+#     f1_weighted = f1_score(all_labels, all_preds, average='weighted')
+#     mcc = matthews_corrcoef(all_labels, all_preds)
+#
+#     return losses.sum(), losses.mean(), accuracies.mean(), f1_weighted, pred_dist, mcc, results_df if simulate else None
+#
 
 def train_model(
         x_dim: int,
@@ -139,9 +135,10 @@ def train_model(
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
     epochs = trainer_params['epochs']
-    opt_type = trainer_params['optimizer']
+    opt_type = trainer_params['optimizer']['name']
     lr = trainer_params['lr']
-    crit_type = trainer_params['criterion']
+    crit_type = trainer_params['criterion']['name']
+    add_loss_to_scheduler = trainer_params['scheduler']['name'] == 'plateau'
 
     model = model_class(
         d_features=x_dim,
@@ -149,59 +146,27 @@ def train_model(
         **model_params
     )
     # Set the optimizer
-    match opt_type:
-        case "adam":
-            optimizer = th.optim.Adam(
-                model.parameters(),
-                lr=lr,
-                betas=(0.9, 0.99),
-                eps=1e-8,
-                weight_decay=1e-3,
-            )
-        case "sgd":
-            optimizer = th.optim.SGD(model.parameters(), lr=lr)
-        case _:
-            raise ValueError(f"Unknown optimizer: {opt_type}")
+    optimizer = get_optimizer(opt_type, lr, trainer_params['optimizer']['config'])
 
     # Set the scheduler
-    match trainer_params['scheduler']:
-        case "plateau":
-            scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, min_lr=1e-5)
-        case "step":
-            scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
-        case "multi":
-            scheduler = th.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15])
-        case _:
-            raise ValueError(f"Unknown scheduler: {trainer_params['scheduler']}")
+    scheduler = get_scheduler(trainer_params['scheduler']['name'], optimizer,
+                              config=trainer_params['scheduler']['config'] if 'config' in trainer_params['scheduler'] else {})
 
-    match crit_type:
-        case "ce":
-            weight = None
-            if train_label_ct is not None:
-                weight = train_label_ct.max() / train_label_ct
-                weight = weight / weight.sum()
-                weight = weight.to(device)
-            criterion = th.nn.CrossEntropyLoss(
-                weight=weight
-            )
-        case "cb_focal":
-            criterion = FocalLoss(
-                class_counts=train_label_ct.to(device),
-                gamma=trainer_params['cbf_gamma'],
-                beta=trainer_params['cbf_beta']
-            )
-        case _:
-            raise ValueError(f"Unknown criterion: {crit_type}")
+    # Set the criterion
+    criterion = get_criterion(crit_type, train_label_ct, trainer_params, device)
+
+    epochs = trainer_params['epochs']
 
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
-    pb = tqdm(total=epochs, desc="Epochs")
+    # pb = tqdm(total=epochs, desc="Epochs")
     for epoch in range(epochs):
         # Run training over the batches
-        train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
+        _, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
         # Evaluate the validation set
-        v_loss, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc, _ = evaluate(model, valid_loader, criterion, device=device)
+        # _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc = evaluate(model, valid_loader, criterion, device=device)
+        _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc, _ = evaluate(model, valid_loader, criterion, device=device)
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
@@ -215,12 +180,17 @@ def train_model(
             writer.add_scalar("MCC/valid", v_mcc, epoch)
 
         # Update the learning rate scheduler on the average validation loss
-        scheduler.step(v_loss_avg)
+        if add_loss_to_scheduler:
+            scheduler.step(v_loss_avg)
+        else:
+            scheduler.step()
+
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        pb.set_description(
-            f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        pb.update(1)
+        print(f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        # pb.set_description(
+        #     f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        # pb.update(1)
 
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df = evaluate(
@@ -237,26 +207,24 @@ def train_model(
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
 
-        # sim_df is a 2 column data frame with a time index.
-        if sim_df is not None:
-            fig, ax = plt.subplots()
-            sim_df.plot(
-                ax=ax,
-                y=["value", "price"],
-                label=["Value", f"{model_params['symbol']} Normalized"]
-            )
-            # Add a dashed line at y = 1.0
-            ax.axhline(1.0, color='k', linestyle='--')
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Normalized Value")
-            ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
-            plt.tight_layout()
+        # TODO clean this up and move to utils for the visualization
+        fig, ax = plt.subplots()
+        sim_df.plot(
+            ax=ax,
+            y=["value", "price"],
+            label=["Value", f"{model_params['symbol']} Normalized"]
+        )
+        # Add a dashed line at y = 1.0
+        ax.axhline(1.0, color='k', linestyle='--')
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Normalized Value")
+        ax.set_title(f"Portfolio Value and Normalized Price: {model_params["symbol"]}")
+        plt.tight_layout()
 
-            writer.add_figure("Simulation/Results", fig, global_step=epochs)
-            # We can also compute cumulative returns and add that to the tensorboard
-            cum_ret = (sim_df["value"].iloc[-1] - sim_df["value"].iloc[0]) / sim_df["value"].iloc[0]
-            writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
-
+        writer.add_figure("Simulation/Results", fig, global_step=epochs)
+        # We can also compute cumulative returns and add that to the tensorboard
+        cum_ret = (sim_df["value"].iloc[-1] - sim_df["value"].iloc[0]) / sim_df["value"].iloc[0]
+        writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
     return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc
 
@@ -376,20 +344,7 @@ def run_grid_search(
         ))
 
         print_target_distribution([("Test", tst_pred_dist)])
-
-        # Create the figures directory if it doesn't exist
-        if not os.path.exists(f"{root}/figures"):
-            print("Creating figures directory...")
-            os.makedirs(f"{root}/figures")
-
-        plt.plot(tr_loss, label='Train Loss')
-        plt.plot(v_loss, label='Valid Loss')
-        plt.xlim(0, config['trainer_params']['epochs'])
-        plt.ylim(*y_lims)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(f"{root}/figures/{trial_prefix}_{config['symbol']}_{trial:03}_loss.png")
-        plt.close()
+        plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root, image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
 
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
