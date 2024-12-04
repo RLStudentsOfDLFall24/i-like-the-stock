@@ -8,7 +8,6 @@ import torch as th
 from sklearn.metrics import f1_score, matthews_corrcoef
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
 
 from src import create_datasets
 from src.cbfocal_loss import FocalLoss
@@ -191,7 +190,6 @@ def train_model(
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
-    #pb = tqdm(total=epochs, desc="Epochs")
     for epoch in range(epochs):
         # Run training over the batches
         train_loss, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
@@ -213,9 +211,6 @@ def train_model(
         scheduler.step(v_loss_avg)
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        #pb.set_description(
-        #    f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {valid_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        #pb.update(1)
         print(
             f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
 

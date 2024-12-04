@@ -40,6 +40,7 @@ lnn:
 lnn_trainer:
   epochs: 10
   lr: 5.e-6
+  fine_tune_lr_ratio: 0.1
   optimizer: "adam"
   scheduler: "plateau"
   criterion: "cb_focal"  # Class Balanced Focal Loss
@@ -64,6 +65,7 @@ transformer:
 transformer_trainer:
   epochs: 10
   lr: 5.e-6
+  fine_tune_lr_ratio: 0.1
   optimizer: "adam"
   scheduler: "plateau"
   criterion: "cb_focal"  # Class Balanced Focal Loss
