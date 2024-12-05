@@ -4,14 +4,13 @@ import pandas as pd
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
-from src.models.lnn import LNN
+from src.models.lnn import LNN, LNN_NCPS, LNN_CfC
 from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
 
 import yaml
 
-
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': LNN_CfC, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
@@ -38,8 +37,8 @@ def run():
 
         sim_results = []
         for m in models:
-            seq_len = config_data[m.key]['seq_len']
-            batch_size = config_data[m.key]['batch_size']
+            seq_len = trainer_params['seq_len']
+            batch_size = trainer_params['batch_size']
             split = config_data['global_params']['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
@@ -51,6 +50,7 @@ def run():
                 log_splits=log_splits,
                 model_params=m.params,
                 trainer_params=m.trainer_params,
+                seed=1984,
                 split=split)
 
             print('Avg Test Loss:',eval_res[4],

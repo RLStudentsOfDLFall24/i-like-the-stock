@@ -3,15 +3,15 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch as th
-from sklearn.metrics import f1_score, matthews_corrcoef
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from src import create_datasets
 from src.dataset import print_target_distribution
+from src.dataset._dataset_utils import create_datasets
 from src.models.abstract_model import AbstractModel
 from training_tools import get_criterion, get_optimizer, get_scheduler, train, evaluate, plot_results, \
     plot_simulation_result
+from training_tools.utils import get_data
 
 
 def train_model(
@@ -133,6 +133,7 @@ def run_experiment(
         trainer_params: dict = None,
         split: float = 1.0,
         root: str = ".",
+        seed: int = 0,
         **kwargs
 ) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """
@@ -165,42 +166,17 @@ def run_experiment(
         - sim_df: The simulation results DataFrame
     """
 
-    trains = []
-    target_train = None
-    target_valid = None
-    target_test = None
-    th.manual_seed(1984)
+    if seed > 0:
+        th.manual_seed(seed)
 
-    for symbol in train_symbols:
-        train_data, valid_data, test_data = create_datasets(
-            symbol,
-            seq_len=seq_len,
-            fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-            log_splits=log_splits,
-            root=f"{root}/data/clean"
-        )
-
-        trains.append(train_data)
-        if symbol == target_symbol:
-            target_train = train_data
-            target_valid = valid_data
-            target_test = test_data
-
-    concatted_trains = ConcatDataset(trains)
-
-    train_loader = DataLoader(concatted_trains, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(target_valid, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(target_test, batch_size=batch_size, shuffle=False)
-
-    train_label_ct = th.sum(th.stack([x.target_counts for x in trains]), dim=0)
-    # train_label_ct = concatted_trains.target_counts
+    target_train, train_label_ct, train_loader, valid_loader, test_loader = get_data(train_symbols, batch_size, seq_len, target_symbol, log_splits, root)
 
     epochs = trainer_params['epochs']
     trainer_params['epochs'] = int(split * epochs)
 
     pretrain = train_model(
         model=None,
-        x_dim=train_data[0][0].shape[1],
+        x_dim=target_train.feature_dim,
         train_loader=train_loader,
         valid_loader=valid_loader,
         test_loader=test_loader,
@@ -218,7 +194,7 @@ def run_experiment(
     # finetune
     return train_model(
         model=pretrain[0],
-        x_dim=train_data[0][0].shape[1],
+        x_dim=target_train.feature_dim,
         train_loader=train_loader,
         valid_loader=valid_loader,
         test_loader=test_loader,
@@ -278,6 +254,7 @@ def run_grid_search(
             log_splits=trial == 0,
             writer=writer,
             root=root,
+            seed=1984,
             **config
         ))
 
