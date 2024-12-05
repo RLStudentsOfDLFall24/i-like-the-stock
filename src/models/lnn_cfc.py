@@ -2,7 +2,7 @@ from ncps.torch import CfC
 
 from src.models.abstract_model import AbstractModel
 
-class LNN_CfC(AbstractModel):
+class CfC_LNN(AbstractModel):
     def __init__(self,
                  d_features,
                  hidden_size,
@@ -14,7 +14,7 @@ class LNN_CfC(AbstractModel):
                  use_mixed=False,
                  device='cpu',
                 ):
-        super(LNN_CfC, self).__init__(d_features=d_features, device=device)
+        super(CfC_LNN, self).__init__(d_features=d_features, device=device)
         
         self.model = CfC(
             d_features,
