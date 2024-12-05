@@ -305,3 +305,5 @@ TSWLatexianTemp*
 __pycache__
 
 .vscode
+
+*_test.ipynb

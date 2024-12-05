@@ -11,9 +11,9 @@ class AbstractModelMeta(nn.Module, metaclass=ABCMeta):
 class AbstractModel(AbstractModelMeta):
     model: nn.Module
 
-    def __init__(self, batch_size: int):
+    def __init__(self, d_features: int):
         super().__init__()
-        self.batch_size = batch_size
+        self.d_features = d_features
 
     @abstractmethod
     def forward(self, data):
