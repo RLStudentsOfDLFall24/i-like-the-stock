@@ -38,8 +38,8 @@ def run():
 
         sim_results = []
         for m in models:
-            seq_len = config_data[m.key]['seq_len']
-            batch_size = config_data[m.key]['batch_size']
+            seq_len = trainer_params['seq_len']
+            batch_size = trainer_params['batch_size']
             split = config_data['global_params']['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
@@ -51,6 +51,7 @@ def run():
                 log_splits=log_splits,
                 model_params=m.params,
                 trainer_params=m.trainer_params,
+                seed=1984,
                 split=split)
 
             print('Avg Test Loss:',eval_res[4],

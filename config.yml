@@ -19,14 +19,14 @@ global_params:
   global_to_target_split: 0.5
 
 rnn:
-  batch_size: 10
   hidden_size: 16
-  seq_len: 50
   dropout: 0.2
   num_layers: 2
   num_outputs: 3
 
 rnn_trainer:
+  batch_size: 10
+  seq_len: 50
   epochs: 300
   lr: 5.e-6
   fine_tune_lr_ratio: 0.1
@@ -42,7 +42,6 @@ rnn_trainer:
     name: "ce"
 
 lnn:
-  batch_size: 16
   n_layers: 6
   hidden_size: 32
   activation: sigmoid
@@ -50,6 +49,8 @@ lnn:
   output_size: 3
 
 lnn_trainer:
+  batch_size: 16
+  seq_len: 30
   fine_tune_lr_ratio: 0.1
   epochs: 200
   lr: 1.e-3
@@ -65,8 +66,6 @@ lnn_trainer:
     name: 'ce'
 
 transformer:
-  batch_size: 128
-  seq_len: 20
   model_dim: 64
   ignore_cols:
     - 0
@@ -86,6 +85,8 @@ transformer:
   pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
 
 transformer_trainer:
+  batch_size: 128
+  seq_len: 20
   epochs: 200
   lr: 1.e-5
   fine_tune_lr_ratio: 0.1

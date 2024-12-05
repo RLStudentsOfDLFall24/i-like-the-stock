@@ -26,15 +26,13 @@ def get_activation_function(activation):
 # this source is derived from the paper's algorithm, this walkthrough: https://github.com/KPEKEP/LTCtutorial/blob/main/LNN_LTC_Tutorial_Eng.ipynb
 # and the original source from the paper found here: https://github.com/raminmh/liquid_time_constant_networks
 class LNN(AbstractModel):
-    def __init__(self, batch_size, d_features, hidden_size, output_size, n_layers=6, activation='relu', eps=1e-8, device='cpu', is_affine=True,
-                 **kwargs):
-        super(LNN, self).__init__(batch_size=batch_size)
+    def __init__(self, d_features, hidden_size, output_size, n_layers=6, activation='relu', eps=1e-8, device='cpu', is_affine=True):
+        super(LNN, self).__init__(d_features=d_features)
         self.step_size = 1 / n_layers
 
         self.activation = get_activation_function(activation)
 
         self.hidden_size = hidden_size
-        self.input_size = d_features
         self.output_size = output_size
         self.n_layers = n_layers
         self.epsilon = eps
@@ -56,13 +54,13 @@ class LNN(AbstractModel):
             "erev": {'ranges': (-0.2, 0.2), 'requires_grad': True, 'shape': (self.hidden_size, self.hidden_size)},
             # adjacency matrix for connections between neurons
             'sparsity_mask': {'ranges': (0, 1), 'requires_grad': False, 'shape': (self.hidden_size, self.hidden_size)},
-            "sensory_w": {'ranges': (0.001, 1.0), 'requires_grad': True, 'shape': (self.input_size, self.hidden_size)}, # Weight
-            "sensory_sigma": {'ranges': (3, 8), 'requires_grad': True, 'shape': (self.input_size, self.hidden_size)}, # Scale
-            "sensory_mu": {'ranges': (0.3, 0.8), 'requires_grad': True, 'shape': (self.input_size, self.hidden_size)}, # Mean
+            "sensory_w": {'ranges': (0.001, 1.0), 'requires_grad': True, 'shape': (self.d_features, self.hidden_size)}, # Weight
+            "sensory_sigma": {'ranges': (3, 8), 'requires_grad': True, 'shape': (self.d_features, self.hidden_size)}, # Scale
+            "sensory_mu": {'ranges': (0.3, 0.8), 'requires_grad': True, 'shape': (self.d_features, self.hidden_size)}, # Mean
             # Reversal Potentionals for sensory inputs between neurons
-            "sensory_erev": {'ranges': (-0.2, 0.2), 'requires_grad': True, 'shape': (self.input_size, self.hidden_size)},
+            "sensory_erev": {'ranges': (-0.2, 0.2), 'requires_grad': True, 'shape': (self.d_features, self.hidden_size)},
             # adjacency matrix for the sensory inputs between neurons
-            'sensory_sparsity_mask': {'ranges': (0, 1), 'requires_grad': False, 'shape': (self.input_size, self.hidden_size)},
+            'sensory_sparsity_mask': {'ranges': (0, 1), 'requires_grad': False, 'shape': (self.d_features, self.hidden_size)},
         }
 
         self.__allocate_parameters()
@@ -153,11 +151,11 @@ from ncps.torch import LTC, CfC
 from ncps.wirings import AutoNCP 
 
 class LNN_2(AbstractModel):
-    def __init__(self, batch_size, input_size, hidden_size, output_size, n_layers=6, use_mixed=False):
-        super(LNN_2, self).__init__(batch_size=batch_size)
-        wiring = AutoNCP(hidden_size, output_size)
+    def __init__(self, d_features, hidden_size, output_size, n_layers=6, use_mixed=False):
+        super(LNN_2, self).__init__(d_features=d_features)
+        wiring = AutoNCP(d_features, d_features)
         
-        self.model = LTC(input_size, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, return_sequences=False)
+        self.model = LTC(d_features, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, return_sequences=False)
 
     def forward(self, x):
         result = self.model(x)
@@ -166,8 +164,7 @@ class LNN_2(AbstractModel):
 
 class LNN_CfC(AbstractModel):
     def __init__(self,
-                 batch_size,
-                 input_size,
+                 d_features,
                  hidden_size,
                  output_size,
                  backbone_dropout=0.0,
@@ -175,11 +172,11 @@ class LNN_CfC(AbstractModel):
                  backbone_hidden=128,
                  activation='lecun_tanh',
                  use_mixed=False):
-        super(LNN_CfC, self).__init__(batch_size=batch_size)
+        super(LNN_CfC, self).__init__(d_features=d_features)
         wiring = AutoNCP(hidden_size, output_size)
         
         self.model = CfC(
-            input_size,
+            d_features,
             hidden_size,
             proj_size=output_size,
             backbone_dropout=backbone_dropout,
