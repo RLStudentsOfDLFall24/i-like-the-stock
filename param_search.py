@@ -11,22 +11,22 @@ def run_st_grid_search():
     t2v_weights = f"t2v_n64_mlp1024_lr6.310e-05"
     for symbol in [
         "atnf",
-        # "bivi",
-        # "cycc",
-        # "vtak"
+        "bivi",
+        "cycc",
+        "vtak"
     ]:
         print(f"{datetime.datetime.now()} | Running grid search for {symbol}")
-        ctx_size = [20]
+        ctx_size = [20, 30]
         d_models = [64]
-        batch_sizes = [128]
-        l_rates = [1e-5]
-        fc_dims = [512]
-        fc_dropouts = [0.2]
+        batch_sizes = [64, 128]
+        l_rates = [1e-5, 5e-5, 1e-4]
+        fc_dims = [1024]
+        fc_dropouts = [0.1]
         mlp_dims = [2048]
-        mlp_dropouts = [0.3]
+        mlp_dropouts = [0.3, 0.4]
         n_freqs = [64]
-        num_encoders = [3]
-        num_heads = [8]
+        num_encoders = [2, 3]
+        num_heads = [4, 8]
         num_lstm_layers = [2]
         lstm_dim = [256]
 
@@ -34,13 +34,15 @@ def run_st_grid_search():
         search_configs = [
             {
                 "train_symbols": [
-                    "atnf",
-                    "bivi",
-                    "cycc",
-                    "vtak"
+                    symbol,
+                    # "atnf",
+                    # "bivi",
+                    # "cycc",
+                    # "vtak",
+                    "spx" # We only use SPX as part of the pretraining
                 ],
                 "target_symbol": symbol,
-                "split": 0.5,
+                "split": 0.30,
                 "seq_len": ctx,
                 "batch_size": bs,
                 "trainer_params": {
@@ -102,7 +104,7 @@ def run_st_grid_search():
         run_grid_search(
             STTransformer,
             search_configs,
-            trial_prefix=f"stt_{symbol}_candidate_search",
+            trial_prefix=f"stt_{symbol}_candidate_search_wspx",
             root=root,
             y_lims=(0.45, 2.0),
         )
