@@ -33,19 +33,33 @@ def run():
 
     if 'train' in config_data['mode']:
         log_splits = config_data['global_params']['log_splits']
-        symbol = config_data['global_params']['symbol']
+        train_symbols = config_data['global_params']['train_symbols']
+        target_symbol = config_data['global_params']['target_symbol']
 
         sim_results = []
         for m in models:
             seq_len = config_data[m.key]['seq_len']
             batch_size = config_data[m.key]['batch_size']
+            split = config_data['global_params']['global_to_target_split']
             print('Starting training for ', m)
-            eval_res = run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
-            # TODO Look at the eval_res and see if we can save all the sim_df frames to plot all test simulations together
-            print('Avg Test Loss:',eval_res[3], '\nTest Accuracy:', eval_res[4], '\nF1:',eval_res[5], '\nPred Dist:',eval_res[6])
+            eval_res = run_experiment(
+                model=m.classname,
+                train_symbols=train_symbols,
+                target_symbol=target_symbol,
+                seq_len=seq_len,
+                batch_size=batch_size,
+                log_splits=log_splits,
+                model_params=m.params,
+                trainer_params=m.trainer_params,
+                split=split)
+
+            print('Avg Test Loss:',eval_res[4],
+                '\nTest Accuracy:', eval_res[5],
+                  '\nF1:',eval_res[6],
+                  '\nPred Dist:',eval_res[7])
+
             sim_results.append(eval_res[8])
-        # TODO - merge all sim_results and plot them using utility
-        # sim_results will have 3 dataframes with 2 columns each. we want a new dataframe with the first column from each and the same index
+        # Merge simulations, keep only one of the symbol price columns
         sim_df = pd.concat(sim_results, axis=1)
         not_dupes = ~sim_df.columns.duplicated()
         sim_df = sim_df.loc[:, not_dupes]
@@ -56,8 +70,8 @@ def run():
 
         plot_simulation_result(
             sim_df,
-            fig_title=f"Strategy Results | {symbol}",
-            fig_name=f"all_models_{symbol}",
+            fig_title=f"Strategy Results | {target_symbol}",
+            fig_name=f"all_models_{target_symbol}",
         )
 
     if 'eval' in config_data['mode']:

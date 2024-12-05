@@ -3,7 +3,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch as th
-from torch.utils.data import DataLoader
+from sklearn.metrics import f1_score, matthews_corrcoef
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 
 from src import create_datasets
@@ -14,6 +15,7 @@ from training_tools import get_criterion, get_optimizer, get_scheduler, train, e
 
 
 def train_model(
+        model: AbstractModel,
         x_dim: int,
         train_loader: DataLoader,
         valid_loader: DataLoader,
@@ -25,7 +27,7 @@ def train_model(
         trainer_params: dict = None,
         symbol: str = "default",
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
+) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
     epochs: int = trainer_params['epochs']
@@ -34,11 +36,13 @@ def train_model(
     crit_type = trainer_params['criterion']['name']
     add_loss_to_scheduler = trainer_params['scheduler']['name'] == 'plateau'
 
-    model = model_class(
-        d_features=x_dim,
-        device=device,
-        **model_params
-    )
+    if model is None:
+        model = model_class(
+            d_features=x_dim,
+            device=device,
+            **model_params
+        )
+
     # Set the optimizer
     optimizer = get_optimizer(
         opt_type,
@@ -48,16 +52,18 @@ def train_model(
     )
 
     # Set the scheduler
-    scheduler = get_scheduler(trainer_params['scheduler']['name'], optimizer,
-                              config=trainer_params['scheduler']['config'] if 'config' in trainer_params[
-                                  'scheduler'] else {})
+    scheduler = get_scheduler(
+        trainer_params['scheduler']['name'],
+        optimizer,
+        config=trainer_params['scheduler']['config'] if 'config' in trainer_params[
+            'scheduler'] else {}
+    )
 
     # Set the criterion
     criterion = get_criterion(crit_type, train_label_ct, trainer_params, device)
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
-    # pb = tqdm(total=epochs, desc="Epochs")
     for epoch in range(epochs):
         # Run training over the batches
         _, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
@@ -84,9 +90,7 @@ def train_model(
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
         print(f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        # pb.set_description(
-        #     f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
-        # pb.update(1)
+
     # Evaluate the test set
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df = evaluate(
         model,
@@ -115,29 +119,30 @@ def train_model(
         cum_ret = (sim_df[model_name].iloc[-1] - sim_df[model_name].iloc[0]) / sim_df[model_name].iloc[0]
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
-    return train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df
+    return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df
+    # return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_mcc, sim_df
 
 
 def run_experiment(
         model: type[AbstractModel],
-        symbol: str,
+        train_symbols: list[str],
+        target_symbol: str,
         seq_len: int,
         batch_size: int,
         log_splits: bool = False,
         model_params: dict = None,
         trainer_params: dict = None,
+        split: float = 0,
         root: str = ".",
         **kwargs
-) -> tuple[np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
+) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
     """
-    Load the data symbol and create PriceSeriesDatasets.
+    Load the data symbols and create PriceSeriesDatasets.
 
-    The symbol data is loaded into PriceSeriesDatasets, augmented with indicators
+    The symbols data is loaded into PriceSeriesDatasets, augmented with indicators
     and then partitioned into train, validation, and test sets. The data are then
     wrapped in DataLoader objects for use in training and evaluation loops.
 
-    :param model: The model class to train
-    :param symbol: The symbol to load
     :param seq_len: The sequence length to use
     :param batch_size: The batch size to use for DataLoader
     :param log_splits: Whether to log the target distribution
@@ -156,21 +161,60 @@ def run_experiment(
         - mcc: The test Matthews correlation coefficient
         - sim_df: The simulation results DataFrame
     """
+
+    trains = []
+    target_train = None
+    target_valid = None
+    target_test = None
     th.manual_seed(1984)
 
-    train_data, valid_data, test_data = create_datasets(
-        symbol,
-        seq_len=seq_len,
-        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
-        log_splits=log_splits,
-        root=f"{root}/data/clean"
-    )
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
-    train_label_ct = train_data.target_counts
+    for symbol in train_symbols:
+        train_data, valid_data, test_data = create_datasets(
+            symbol,
+            seq_len=seq_len,
+            fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+            log_splits=log_splits,
+            root=f"{root}/data/clean"
+        )
 
+        trains.append(train_data)
+        if symbol == target_symbol:
+            target_train = train_data
+            target_valid = valid_data
+            target_test = test_data
+
+    concatted_trains = ConcatDataset(trains)
+
+    train_loader = DataLoader(concatted_trains, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(target_valid, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(target_test, batch_size=batch_size, shuffle=False)
+
+    train_label_ct = th.sum(th.stack([x.target_counts for x in trains]), dim=0)
+    # train_label_ct = concatted_trains.target_counts
+
+    epochs = trainer_params['epochs']
+    trainer_params['epochs'] = int(split * epochs)
+
+    pretrain = train_model(
+        model=None,
+        x_dim=train_data[0][0].shape[1],
+        train_loader=train_loader,
+        valid_loader=valid_loader,
+        test_loader=test_loader,
+        train_label_ct=train_label_ct,
+        model_class=model,
+        model_params=model_params,
+        trainer_params=trainer_params
+    )
+
+    trainer_params['epochs'] = int((1 - split) * epochs)
+    train_loader = DataLoader(target_train, batch_size=batch_size, shuffle=True)
+    train_label_ct = target_train.target_counts
+    trainer_params['lr'] = trainer_params['lr'] * trainer_params['fine_tune_lr_ratio']
+
+    # finetune
     return train_model(
+        model=pretrain[0],
         x_dim=train_data[0][0].shape[1],
         train_loader=train_loader,
         valid_loader=valid_loader,
@@ -179,7 +223,7 @@ def run_experiment(
         model_class=model,
         model_params=model_params,
         trainer_params=trainer_params,
-        symbol=symbol,
+        symbol=target_symbol,
         **kwargs
     )
 
@@ -256,7 +300,6 @@ def run_grid_search(
         results_dict["test_mcc"].append(tst_mcc)
         results_dict["test_pred_dist"].append([round(x.item(), 3) for x in tst_pred_dist])
         results_dict["test_cum_ret"].append(cum_ret)
-
         # Iterate over the config and append the values to the dictionary
         for key, value in config["trainer_params"].items():
             results_dict[key].append(value)

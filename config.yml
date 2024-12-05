@@ -8,21 +8,29 @@ model_types:
 #  - lnn
 
 global_params:
-  symbol: "atnf"
+  train_symbols:
+  - "atnf"
+  #- "biaf"
+  - "bivi"
+  - "cycc"
+  - "vtak"
+  target_symbol: "atnf"
   log_splits: False
+  global_to_target_split: 0.5
 
 rnn:
   batch_size: 10
-  hidden_size: 32
-  seq_len: 30
+  hidden_size: 16
+  seq_len: 50
   dropout: 0.2
-  num_layers: 1
+  num_layers: 2
   num_outputs: 3
 
 rnn_trainer:
   epochs: 300
   lr: 5.e-6
-  optimizer: 
+  fine_tune_lr_ratio: 0.1
+  optimizer:
     name: "adam"
     config:
       eps: 1.e-8
@@ -42,6 +50,7 @@ lnn:
   output_size: 3
 
 lnn_trainer:
+  fine_tune_lr_ratio: 0.1
   epochs: 200
   lr: 1.e-3
   optimizer: 
@@ -79,7 +88,8 @@ transformer:
 transformer_trainer:
   epochs: 200
   lr: 1.e-5
-  optimizer: 
+  fine_tune_lr_ratio: 0.1
+  optimizer:
     name: "adam"
     config:
       eps: 1.e-8
