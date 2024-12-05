@@ -3,9 +3,11 @@ mode:
   - eval
 
 model_types:
-  - rnn
+  #- rnn
   #- transformer
   #- lnn
+  - lnn_cfc
+  - lnn_ncps
 
 global_params:
   train_symbols: 
@@ -38,12 +40,14 @@ rnn_trainer:
       weight_decay: 1.e-3
   scheduler:
     name: 'plateau'
-  criterion: "ce"
+  criterion:
+    name: "ce"
 
 lnn:
   n_layers: 6
   hidden_size: 32
-  activation: sigmoid
+  output_size: 3
+  activation: relu
 
 lnn_trainer:
   batch_size: 16
@@ -54,12 +58,64 @@ lnn_trainer:
   optimizer: 
     name: "adam"
     config:
-      eps: 1.e-8
+      eps: 1.e-7
       betas: [0.9, 0.99]
-      weight_decay: 1.e-3
+      weight_decay: 0
   scheduler:
     name: 'plateau'
-  criterion: 'ce'
+  criterion:
+    name: 'ce'
+
+lnn_cfc:
+  hidden_size: 32
+  output_size: 3
+  use_mixed: true # adds an LSTM into the mix
+  backbone_dropout: 0.2
+  backbone_layers: 1
+  activation: lecun_tanh
+
+lnn_cfc_trainer:
+  batch_size: 16
+  seq_len: 30
+  fine_tune_lr_ratio: 0.1
+  epochs: 200
+  lr: 2.e-2
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-7
+      betas: [0.9, 0.99]
+      weight_decay: 0
+  scheduler:
+    name: 'plateau'
+  criterion:
+    name: 'ce'
+
+lnn_ncps:
+  n_layers: 6
+  hidden_size: 32
+  output_size: 3
+  input_mapping: affine
+  output_mapping: affine
+  eps: 1.e-8
+  use_mixed: false # adds an LSTM into the mix
+
+lnn_ncps_trainer:
+  batch_size: 16
+  seq_len: 30
+  fine_tune_lr_ratio: 0.1
+  epochs: 200
+  lr: 1.e-3
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-7
+      betas: [0.9, 0.99]
+      weight_decay: 0
+  scheduler:
+    name: 'plateau'
+  criterion:
+    name: 'ce'
 
 transformer:
   model_dim: 64
@@ -90,4 +146,5 @@ transformer_trainer:
       weight_decay: 1.e-3
   scheduler:
     name: 'plateau'
-  criterion: "cb_focal"  # Class Balanced Focal Loss
+  criterion:
+    name: "cb_focal"  # Class Balanced Focal Loss

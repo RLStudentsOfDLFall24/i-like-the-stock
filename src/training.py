@@ -41,7 +41,7 @@ def train_model(
         )
 
     # Set the optimizer
-    optimizer = get_optimizer(opt_type, lr, trainer_params['optimizer']['config'])
+    optimizer = get_optimizer(opt_type, model, lr, trainer_params['optimizer']['config'])
 
     # Set the scheduler
     scheduler = get_scheduler(trainer_params['scheduler']['name'], optimizer,

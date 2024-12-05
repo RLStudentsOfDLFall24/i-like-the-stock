@@ -2,12 +2,12 @@ from collections import namedtuple
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
-from src.models.lnn import LNN
+from src.models.lnn import LNN, LNN_NCPS, LNN_CfC
 from src.training import run_experiment
 
 import yaml
 
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': LNN_CfC, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
