@@ -81,7 +81,7 @@ lnn_cfc_trainer:
   seq_len: 20
   fine_tune_lr_ratio: 0.1
   epochs: 100
-  lr: 1.e-4
+  lr: 2.e-3
   optimizer: 
     name: "adam"
     config:
