@@ -27,7 +27,7 @@ def get_activation_function(activation):
 # and the original source from the paper found here: https://github.com/raminmh/liquid_time_constant_networks
 class LNN(AbstractModel):
     def __init__(self, d_features, hidden_size, output_size, n_layers=6, activation='relu', eps=1e-8, device='cpu', is_affine=True):
-        super(LNN, self).__init__(d_features=d_features)
+        super(LNN, self).__init__(d_features=d_features, device=device)
         self.step_size = 1 / n_layers
 
         self.activation = get_activation_function(activation)
@@ -36,7 +36,6 @@ class LNN(AbstractModel):
         self.output_size = output_size
         self.n_layers = n_layers
         self.epsilon = eps
-        self.device = device
 
         # pulled this setup from the NCPS version of the LTC implemenation. I want to know what everything does!
         # https://github.com/mlech26l/ncps/blob/master/ncps/torch/ltc_cell.py#L57-L67
@@ -150,12 +149,12 @@ class LNN(AbstractModel):
 from ncps.torch import LTC, CfC
 from ncps.wirings import AutoNCP 
 
-class LNN_2(AbstractModel):
-    def __init__(self, d_features, hidden_size, output_size, n_layers=6, use_mixed=False):
-        super(LNN_2, self).__init__(d_features=d_features)
-        wiring = AutoNCP(d_features, d_features)
+class LNN_NCPS(AbstractModel):
+    def __init__(self, d_features, hidden_size, output_size, input_mapping='affine', output_mapping='affine', n_layers=6, eps=1e-8, use_mixed=False, device='cpu'):
+        super(LNN_NCPS, self).__init__(d_features=d_features, device=device)
+        wiring = AutoNCP(hidden_size, output_size)
         
-        self.model = LTC(d_features, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, return_sequences=False)
+        self.model = LTC(d_features, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, input_mapping=input_mapping, output_mapping=output_mapping, epsilon=eps, return_sequences=False).to(device)
 
     def forward(self, x):
         result = self.model(x)
@@ -171,9 +170,10 @@ class LNN_CfC(AbstractModel):
                  backbone_layers=1,
                  backbone_hidden=128,
                  activation='lecun_tanh',
-                 use_mixed=False):
-        super(LNN_CfC, self).__init__(d_features=d_features)
-        wiring = AutoNCP(hidden_size, output_size)
+                 use_mixed=False,
+                 device='cpu',
+                ):
+        super(LNN_CfC, self).__init__(d_features=d_features, device=device)
         
         self.model = CfC(
             d_features,
@@ -184,7 +184,7 @@ class LNN_CfC(AbstractModel):
             backbone_units=backbone_hidden,
             activation=activation,
             return_sequences=False,
-            mixed_memory=use_mixed)
+            mixed_memory=use_mixed).to(device)
 
     def forward(self, x):
         result = self.model(x)

@@ -11,7 +11,7 @@ class RNN(AbstractModel):
                  num_layers: int,
                  dropout: float,
                  device: torch.device):
-        super(RNN, self).__init__(d_features=d_features)
+        super(RNN, self).__init__(d_features=d_features, device=device)
 
         self.model = nn.RNN(input_size=d_features,
                             hidden_size=hidden_size,
@@ -27,9 +27,6 @@ class RNN(AbstractModel):
         #</IRNN paper>
 
         self.fc_output = nn.Linear(hidden_size, num_outputs)
-
-        
-        self.device = device
 
         self.to(device)
 
