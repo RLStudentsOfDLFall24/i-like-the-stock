@@ -18,7 +18,7 @@ global_params:
   - "vtak"
   target_symbol: "atnf"
   log_splits: False
-  global_to_target_split: 1
+  global_to_target_split: 0.82
 
 rnn:
   hidden_size: 24

@@ -309,3 +309,4 @@ __pycache__
 *_test.ipynb
 
 *.vim
+figures/*
