@@ -135,11 +135,12 @@ def process_dat_files(
     :param kwargs: Additional arguments for the target generation
     """
     symbols = [
-        "atnf",
-        "biaf",
-        "bivi",
-        "cycc",
-        "vtak"
+        # "atnf",
+        # "biaf",
+        # "bivi",
+        # "cycc",
+        # "vtak"
+        "spx"
     ]
 
     try:

@@ -1,11 +1,15 @@
 from collections import namedtuple
+
+import pandas as pd
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
-from src.training import run_experiment
+from src.training import run_experiment, get_spx_benchmark
+from training_tools.utils import plot_simulation_result
 
 import yaml
+
 
 MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
@@ -32,6 +36,7 @@ def run():
         train_symbols = config_data['global_params']['train_symbols']
         target_symbol = config_data['global_params']['target_symbol']
 
+        sim_results = []
         for m in models:
             seq_len = config_data[m.key]['seq_len']
             batch_size = config_data[m.key]['batch_size']
@@ -52,6 +57,22 @@ def run():
                 '\nTest Accuracy:', eval_res[5],
                   '\nF1:',eval_res[6],
                   '\nPred Dist:',eval_res[7])
+
+            sim_results.append(eval_res[-1])
+        # Merge simulations, keep only one of the symbol price columns
+        sim_df = pd.concat(sim_results, axis=1)
+        not_dupes = ~sim_df.columns.duplicated()
+        sim_df = sim_df.loc[:, not_dupes]
+
+        # Add the spx benchmark
+        spx_bench = get_spx_benchmark(root='.')
+        sim_df = pd.concat([sim_df, spx_bench], axis=1)
+
+        plot_simulation_result(
+            sim_df,
+            fig_title=f"Strategy Results | {target_symbol}",
+            fig_name=f"all_models_{target_symbol}",
+        )
 
     if 'eval' in config_data['mode']:
         for m in models:
