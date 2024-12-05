@@ -120,7 +120,6 @@ def train_model(
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
     return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df
-    # return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_mcc, sim_df
 
 
 def run_experiment(
@@ -132,7 +131,7 @@ def run_experiment(
         log_splits: bool = False,
         model_params: dict = None,
         trainer_params: dict = None,
-        split: float = 0,
+        split: float = 1.0,
         root: str = ".",
         **kwargs
 ) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
@@ -143,11 +142,15 @@ def run_experiment(
     and then partitioned into train, validation, and test sets. The data are then
     wrapped in DataLoader objects for use in training and evaluation loops.
 
+    :param model: The model class to train
+    :param train_symbols: The symbols to use for training
+    :param target_symbol: The target symbol to use for testing
     :param seq_len: The sequence length to use
     :param batch_size: The batch size to use for DataLoader
     :param log_splits: Whether to log the target distribution
     :param model_params: Additional arguments for the model
     :param trainer_params: Additional arguments for the trainer
+    :param split: The split ratio for training and fine-tuning
     :param root: The root directory to save the results
     :param kwargs: Additional arguments
     :return: A tuple of results as follows:
@@ -269,7 +272,7 @@ def run_grid_search(
         criterion = config['trainer_params']['criterion']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
-        tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim = (run_experiment
+        _, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim = (run_experiment
             (
             model=model_type,
             log_splits=trial == 0,
@@ -278,13 +281,14 @@ def run_grid_search(
             **config
         ))
 
+        tgt_symbol = config['target_symbol']
         print_target_distribution([("Test", tst_pred_dist)])
         plot_results(tr_loss, v_loss, config['trainer_params']['epochs'], y_lims=y_lims, root=root,
-                     image_name=f'{trial_prefix}_{config['symbol']}_{trial:03}_loss')
+                     image_name=f'{trial_prefix}_{tgt_symbol}_{trial:03}_loss')
         # Plot the simulation results
         plot_simulation_result(
             sim,
-            fig_title=f"Simulation Results for {config['symbol']}|{trial:03}",
+            fig_title=f"Simulation Results for {tgt_symbol}|{trial:03}",
             fig_name=f"{trial_prefix}_{trial:03}",
             root=root
         )

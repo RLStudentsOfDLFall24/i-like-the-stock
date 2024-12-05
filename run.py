@@ -58,7 +58,7 @@ def run():
                   '\nF1:',eval_res[6],
                   '\nPred Dist:',eval_res[7])
 
-            sim_results.append(eval_res[8])
+            sim_results.append(eval_res[-1])
         # Merge simulations, keep only one of the symbol price columns
         sim_df = pd.concat(sim_results, axis=1)
         not_dupes = ~sim_df.columns.duplicated()

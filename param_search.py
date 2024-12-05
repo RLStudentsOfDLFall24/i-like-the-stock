@@ -11,19 +11,19 @@ def run_st_grid_search():
     t2v_weights = f"t2v_n64_mlp1024_lr6.310e-05"
     for symbol in [
         "atnf",
-        "bivi",
-        "cycc",
-        "vtak"
+        # "bivi",
+        # "cycc",
+        # "vtak"
     ]:
         print(f"{datetime.datetime.now()} | Running grid search for {symbol}")
-        ctx_size = [10, 20, 30]
+        ctx_size = [20]
         d_models = [64]
         batch_sizes = [128]
         l_rates = [1e-5]
-        fc_dims = [512, 1024]
-        fc_dropouts = [0.1, 0.2]
+        fc_dims = [512]
+        fc_dropouts = [0.2]
         mlp_dims = [2048]
-        mlp_dropouts = [0.3, 0.4]
+        mlp_dropouts = [0.3]
         n_freqs = [64]
         num_encoders = [3]
         num_heads = [8]
@@ -33,10 +33,18 @@ def run_st_grid_search():
         # use itertools.product to generate dictionaries of hyperparameters
         search_configs = [
             {
-                "symbol": symbol,
+                "train_symbols": [
+                    "atnf",
+                    "bivi",
+                    "cycc",
+                    "vtak"
+                ],
+                "target_symbol": symbol,
+                "split": 0.5,
                 "seq_len": ctx,
                 "batch_size": bs,
                 "trainer_params": {
+                    "fine_tune_lr_ratio": 0.1,
                     "criterion": {
                         "name": "cb_focal",
                     },
@@ -94,9 +102,9 @@ def run_st_grid_search():
         run_grid_search(
             STTransformer,
             search_configs,
-            trial_prefix=f"stt_{symbol}_candidate_search", # TODO update
+            trial_prefix=f"stt_{symbol}_candidate_search",
             root=root,
-            y_lims=(0.45, 0.8),
+            y_lims=(0.45, 2.0),
         )
         print(f"{datetime.datetime.now()} | Finished grid search for {symbol}")
 
