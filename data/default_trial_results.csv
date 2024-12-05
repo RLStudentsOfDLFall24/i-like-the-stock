@@ -1,3 +1,0 @@
-seq_len,test_f1,k,lstm_dim,symbol,ignore_cols,optimizer,mlp_dim,test_acc,criterion,epochs,num_lstm_layers,time_idx,fc_dim,test_pred_dist,d_model,fc_dropout,trial_id,mlp_dropout,num_encoders,scheduler,batch_size,num_heads,test_loss_avg,test_loss,lr
-11,0.3540425531914893,64,256,atnf,[0],adam,512,0.5115266393442623,cb_focal,10,3,"[6, 7, 8]",128,"[0.984, 0.016, 0.0]",64,0.1,0,0.4,3,plateau,64,8,0.2781679481267929,0.5563358962535858,1e-05
-11,0.1265923778851315,64,256,atnf,[0],adam,512,0.12884221311475408,cb_focal,10,3,"[6, 7, 8]",256,"[0.128, 0.848, 0.024]",64,0.1,1,0.4,3,plateau,64,8,0.2684856951236725,0.536971390247345,1e-05
