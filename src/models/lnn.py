@@ -146,7 +146,7 @@ class LNN(AbstractModel):
         return (cm_t * v_pre + gleak * self._params['vleak'] + w_numerator) / (cm_t + gleak + w_denominator + self.epsilon)
 
 
-from ncps.torch import LTC, CfC
+from ncps.torch import LTC
 from ncps.wirings import AutoNCP 
 
 class LNN_NCPS(AbstractModel):
@@ -155,36 +155,6 @@ class LNN_NCPS(AbstractModel):
         wiring = AutoNCP(hidden_size, output_size)
         
         self.model = LTC(d_features, wiring, ode_unfolds=n_layers, mixed_memory=use_mixed, input_mapping=input_mapping, output_mapping=output_mapping, epsilon=eps, return_sequences=False).to(device)
-
-    def forward(self, x):
-        result = self.model(x)
-
-        return result[0]
-
-class LNN_CfC(AbstractModel):
-    def __init__(self,
-                 d_features,
-                 hidden_size,
-                 output_size,
-                 backbone_dropout=0.0,
-                 backbone_layers=1,
-                 backbone_hidden=128,
-                 activation='lecun_tanh',
-                 use_mixed=False,
-                 device='cpu',
-                ):
-        super(LNN_CfC, self).__init__(d_features=d_features, device=device)
-        
-        self.model = CfC(
-            d_features,
-            hidden_size,
-            proj_size=output_size,
-            backbone_dropout=backbone_dropout,
-            backbone_layers=backbone_layers,
-            backbone_units=backbone_hidden,
-            activation=activation,
-            return_sequences=False,
-            mixed_memory=use_mixed).to(device)
 
     def forward(self, x):
         result = self.model(x)
