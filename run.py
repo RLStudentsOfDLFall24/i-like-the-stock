@@ -5,13 +5,13 @@ import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN, LNN_NCPS
-from src.models.lnn_cfc import LNN_CfC
+from src.models.lnn_cfc import CfC_LNN
 from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
 
 import yaml
 
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': LNN_CfC, 'lnn_ncps': LNN_NCPS}
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': CfC_LNN, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 

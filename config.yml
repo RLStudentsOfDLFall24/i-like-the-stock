@@ -4,9 +4,9 @@ mode:
 
 model_types:
   #- rnn
-  - transformer
-  - lnn_cfc
+  #- transformer
   - lnn
+  - lnn_cfc
   #- lnn_ncps
 
 global_params:
@@ -44,17 +44,17 @@ rnn_trainer:
     name: "ce"
 
 lnn:
-  n_layers: 6
+  n_layers: 8
   hidden_size: 128
   output_size: 3
-  activation: sigmoid
+  activation: leaky_relu
 
 lnn_trainer:
-  batch_size: 64
+  batch_size: 128
   seq_len: 20
   fine_tune_lr_ratio: 1.0
   epochs: 100
-  lr: 1.e-3
+  lr: 5.e-4
   optimizer: 
     name: "adam"
     config:
@@ -69,19 +69,19 @@ lnn_trainer:
   cbf_beta: 0.99
 
 lnn_cfc:
-  hidden_size: 32
+  hidden_size: 64
   output_size: 3
   use_mixed: true # adds an LSTM into the mix
   backbone_dropout: 0.2
   backbone_layers: 3
-  activation: lecun_tanh
+  activation: silu
 
 lnn_cfc_trainer:
-  batch_size: 64
+  batch_size: 128
   seq_len: 20
   fine_tune_lr_ratio: 0.1
-  epochs: 200
-  lr: 2.e-2
+  epochs: 100
+  lr: 1.e-4
   optimizer: 
     name: "adam"
     config:
