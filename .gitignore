@@ -307,3 +307,5 @@ __pycache__
 .vscode
 
 *_test.ipynb
+
+*.vim
