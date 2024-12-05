@@ -4,9 +4,9 @@ mode:
 
 model_types:
   #- rnn
-  - transformer
-  - lnn_cfc
+  #- transformer
   - lnn
+  - lnn_cfc
   #- lnn_ncps
 
 global_params:
