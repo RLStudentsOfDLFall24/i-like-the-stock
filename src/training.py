@@ -215,7 +215,7 @@ def run_grid_search(
     # Keys we know we'll need
     result_keys.update({
         "batch_size", "symbol", "trial_id", "test_loss", "test_loss_avg",
-        "test_acc", "test_f1", "test_pred_dist", "test_mcc"
+        "test_acc", "test_f1", "test_pred_dist", "test_mcc", "test_cum_ret"
     })
     results_dict = {key: [] for key in result_keys}
 
@@ -245,6 +245,8 @@ def run_grid_search(
             root=root
         )
 
+        cum_ret = (sim["STT"].iloc[-1] - sim["STT"].iloc[0]) / sim["STT"].iloc[0]
+
         # Save the loss and training results to the dictionary
         results_dict["trial_id"].append(trial)
         results_dict["test_loss"].append(tst_loss)
@@ -253,6 +255,7 @@ def run_grid_search(
         results_dict["test_f1"].append(tst_f1)
         results_dict["test_mcc"].append(tst_mcc)
         results_dict["test_pred_dist"].append([round(x.item(), 3) for x in tst_pred_dist])
+        results_dict["test_cum_ret"].append(cum_ret)
 
         # Iterate over the config and append the values to the dictionary
         for key, value in config["trainer_params"].items():
@@ -266,3 +269,26 @@ def run_grid_search(
     # Save the results to a CSV file
     results_df = pd.DataFrame(results_dict)
     results_df.to_csv(f"{root}/data/{trial_prefix}_results.csv", index=False)
+
+
+def get_spx_benchmark(root: str) -> pd.DataFrame:
+    """
+    Load spx data and compute normalized value over the test period.
+    :param root: The root directory to load the data
+    :return: A DataFrame of the normalized SPX value over the test period
+    """
+    _, _, spx_test = create_datasets(
+        "spx",
+        seq_len=10,  # seq_len doesn't matter for this
+        fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+        log_splits=False,
+        root=f"{root}/data/clean"
+    )
+
+    spx_prices = spx_test.unscaled_prices.detach().numpy()
+    time_idx = pd.to_datetime(spx_test.time_idx.detach().numpy(), unit='s')
+    res_df = pd.DataFrame(
+        {
+            "SPX": np.round(spx_prices / spx_prices[0], 2),
+        }, index=time_idx)
+    return res_df

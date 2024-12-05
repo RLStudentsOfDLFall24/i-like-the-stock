@@ -5,7 +5,7 @@ import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
-from src.training import run_experiment
+from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
 
 import yaml
@@ -50,10 +50,13 @@ def run():
         not_dupes = ~sim_df.columns.duplicated()
         sim_df = sim_df.loc[:, not_dupes]
 
-        # pull in the util
+        # Add the spx benchmark
+        spx_bench = get_spx_benchmark(root='.')
+        sim_df = pd.concat([sim_df, spx_bench], axis=1)
+
         plot_simulation_result(
             sim_df,
-            fig_title=f"Simulation Results for {symbol}",
+            fig_title=f"Strategy Results | {symbol}",
             fig_name=f"all_models_{symbol}",
         )
 
