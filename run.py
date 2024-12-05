@@ -29,14 +29,29 @@ def run():
 
     if 'train' in config_data['mode']:
         log_splits = config_data['global_params']['log_splits']
-        symbol = config_data['global_params']['symbol']
+        train_symbols = config_data['global_params']['train_symbols']
+        target_symbol = config_data['global_params']['target_symbol']
 
         for m in models:
             seq_len = config_data[m.key]['seq_len']
             batch_size = config_data[m.key]['batch_size']
+            split = config_data['global_params']['global_to_target_split']
             print('Starting training for ', m)
-            eval_res = run_experiment(model=m.classname, symbol=symbol, seq_len=seq_len, batch_size=batch_size, log_splits=log_splits, model_params=m.params, trainer_params=m.trainer_params)
-            print('Avg Test Loss:',eval_res[3], '\nTest Accuracy:', eval_res[4], '\nF1:',eval_res[5], '\nPred Dist:',eval_res[6])
+            eval_res = run_experiment(
+                model=m.classname,
+                train_symbols=train_symbols,
+                target_symbol=target_symbol,
+                seq_len=seq_len,
+                batch_size=batch_size,
+                log_splits=log_splits,
+                model_params=m.params,
+                trainer_params=m.trainer_params,
+                split=split)
+
+            print('Avg Test Loss:',eval_res[4],
+                '\nTest Accuracy:', eval_res[5],
+                  '\nF1:',eval_res[6],
+                  '\nPred Dist:',eval_res[7])
 
     if 'eval' in config_data['mode']:
         for m in models:
