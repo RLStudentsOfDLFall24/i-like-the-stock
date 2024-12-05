@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 import pandas as pd
-from IPython.core.pylabtools import figsize
+#from IPython.core.pylabtools import figsize
 
 from src.cbfocal_loss import FocalLoss
 from src.dataset._dataset_utils import create_datasets
