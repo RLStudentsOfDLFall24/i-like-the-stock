@@ -1,13 +1,16 @@
 from collections import namedtuple
+
+import pandas as pd
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
-from src.models.lnn import LNN
-from src.training import run_experiment
+from src.models.lnn import LNN, LNN_NCPS, LNN_CfC
+from src.training import run_experiment, get_spx_benchmark
+from training_tools.utils import plot_simulation_result
 
 import yaml
 
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN}
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': LNN_CfC, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
@@ -32,9 +35,10 @@ def run():
         train_symbols = config_data['global_params']['train_symbols']
         target_symbol = config_data['global_params']['target_symbol']
 
+        sim_results = []
         for m in models:
-            seq_len = config_data[m.key]['seq_len']
-            batch_size = config_data[m.key]['batch_size']
+            seq_len = trainer_params['seq_len']
+            batch_size = trainer_params['batch_size']
             split = config_data['global_params']['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
@@ -46,12 +50,29 @@ def run():
                 log_splits=log_splits,
                 model_params=m.params,
                 trainer_params=m.trainer_params,
+                seed=1984,
                 split=split)
 
             print('Avg Test Loss:',eval_res[4],
                 '\nTest Accuracy:', eval_res[5],
                   '\nF1:',eval_res[6],
                   '\nPred Dist:',eval_res[7])
+
+            sim_results.append(eval_res[-1])
+        # Merge simulations, keep only one of the symbol price columns
+        sim_df = pd.concat(sim_results, axis=1)
+        not_dupes = ~sim_df.columns.duplicated()
+        sim_df = sim_df.loc[:, not_dupes]
+
+        # Add the spx benchmark
+        spx_bench = get_spx_benchmark(root='.')
+        sim_df = pd.concat([sim_df, spx_bench], axis=1)
+
+        plot_simulation_result(
+            sim_df,
+            fig_title=f"Strategy Results | {target_symbol}",
+            fig_name=f"all_models_{target_symbol}",
+        )
 
     if 'eval' in config_data['mode']:
         for m in models:

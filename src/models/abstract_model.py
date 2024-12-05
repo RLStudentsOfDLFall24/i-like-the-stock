@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod
 
 #Inherit from both
 class AbstractModelMeta(nn.Module, metaclass=ABCMeta):
@@ -11,9 +11,10 @@ class AbstractModelMeta(nn.Module, metaclass=ABCMeta):
 class AbstractModel(AbstractModelMeta):
     model: nn.Module
 
-    def __init__(self, batch_size: int):
+    def __init__(self, d_features: int, device: torch.device):
         super().__init__()
-        self.batch_size = batch_size
+        self.d_features = d_features
+        self.device = device
 
     @abstractmethod
     def forward(self, data):

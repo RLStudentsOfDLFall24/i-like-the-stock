@@ -83,17 +83,14 @@ class STTransformer(AbstractModel):
             mlp_dim: int = 2048,
             mlp_dropout: float = 0.4,
             seq_len: int = 32,
-            batch_size: int = 32,
             ignore_cols: list[int] = None,
             pretrained_t2v: str = None,
             **kwargs
     ):
         # Standard nn.Module initialization
-        super(STTransformer, self).__init__(batch_size=batch_size)
+        super(STTransformer, self).__init__(d_features=d_features, device=device)
 
         # Assign the parameters to the class
-        self.d_features = d_features
-        self.device = device
         self.seq_len = seq_len
         self.model_dim = model_dim
         self.num_encoders = num_encoders
