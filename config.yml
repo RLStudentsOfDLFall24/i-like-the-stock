@@ -4,7 +4,7 @@ mode:
 
 model_types:
   #- rnn
-  #- transformer
+  - transformer
   - lnn
   - lnn_cfc
   #- lnn_ncps
@@ -12,11 +12,10 @@ model_types:
 global_params:
   train_symbols:
   - "atnf"
-  #- "biaf"
   - "bivi"
   - "cycc"
   - "vtak"
-  target_symbol: "atnf"
+  target_symbol: "bivi"
   log_splits: False
   global_to_target_split: 0.82
 
@@ -81,7 +80,7 @@ lnn_cfc_trainer:
   seq_len: 20
   fine_tune_lr_ratio: 0.1
   epochs: 100
-  lr: 1.e-4
+  lr: 2.e-3
   optimizer: 
     name: "adam"
     config:
