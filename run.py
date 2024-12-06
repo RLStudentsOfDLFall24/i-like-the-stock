@@ -56,7 +56,8 @@ def run():
             print('Avg Test Loss:',eval_res[4],
                 '\nTest Accuracy:', eval_res[5],
                   '\nF1:',eval_res[6],
-                  '\nPred Dist:',eval_res[7])
+                  '\nPred Dist:',eval_res[7],
+                  '\nMCC:',eval_res[8])
 
             sim_results.append(eval_res[-1])
         # Merge simulations, keep only one of the symbol price columns
