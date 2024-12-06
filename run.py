@@ -40,7 +40,7 @@ def run():
         for m in models:
             seq_len = trainer_params['seq_len']
             batch_size = trainer_params['batch_size']
-            split = config_data['global_params']['global_to_target_split']
+            split = trainer_params['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
                 model=m.classname,
