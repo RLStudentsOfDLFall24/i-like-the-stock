@@ -3,8 +3,8 @@ mode:
   - eval
 
 model_types:
-  - rnn
-  #- transformer
+#  - rnn
+  - transformer
   #- lnn
   #- lnn_cfc
   #- lnn_ncps
@@ -119,13 +119,14 @@ lnn_ncps_trainer:
 
 transformer:
   model_dim: 64
+  seq_len: 20
   ignore_cols:
     - 0
   time_idx:
     - 6
     - 7
     - 8
-  fc_dim: 512
+  fc_dim: 1024
   fc_dropout: 0.1
   mlp_dim: 2048
   mlp_dropout: 0.3
@@ -140,7 +141,7 @@ transformer_trainer:
   batch_size: 128
   seq_len: 20
   epochs: 200
-  lr: 1.e-5
+  lr: 5.e-5
   fine_tune_lr_ratio: 0.1
   optimizer:
     name: "adam"
