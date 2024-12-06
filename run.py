@@ -4,13 +4,14 @@ import pandas as pd
 import torch as th
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
-from src.models.lnn import LNN, LNN_NCPS, LNN_CfC
+from src.models.lnn import LNN, LNN_NCPS
+from src.models.lnn_cfc import CfC_LNN
 from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
 
 import yaml
 
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': LNN_CfC, 'lnn_ncps': LNN_NCPS}
+MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': CfC_LNN, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
@@ -39,7 +40,7 @@ def run():
         for m in models:
             seq_len = trainer_params['seq_len']
             batch_size = trainer_params['batch_size']
-            split = config_data['global_params']['global_to_target_split']
+            split = trainer_params['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
                 model=m.classname,

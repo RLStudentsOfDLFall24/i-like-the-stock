@@ -1,25 +1,23 @@
 mode:
   - train
-  - eval
+  #- eval
 
 model_types:
-#  - rnn
-  - transformer
+  #- rnn
+  #- transformer
   #- lnn
-  #- lnn_cfc
+  - lnn_cfc
   #- lnn_ncps
 
 global_params:
   train_symbols:
   - "atnf"
-  #- "biaf"
   - "bivi"
   - "cycc"
   - "vtak"
   - "spx"
   target_symbol: "atnf"
   log_splits: False
-  global_to_target_split: 0.82
 
 rnn:
   hidden_size: 24
@@ -28,6 +26,7 @@ rnn:
   num_outputs: 3
 
 rnn_trainer:
+  global_to_target_split: 0.82
   batch_size: 20
   seq_len: 75
   epochs: 100
@@ -48,14 +47,15 @@ lnn:
   n_layers: 6
   hidden_size: 32
   output_size: 3
-  activation: relu
+  activation: tanh
 
 lnn_trainer:
+  global_to_target_split: 0.5
   batch_size: 16
-  seq_len: 30
-  fine_tune_lr_ratio: 0.1
-  epochs: 200
-  lr: 1.e-3
+  seq_len: 80
+  fine_tune_lr_ratio: 1.0
+  epochs: 100
+  lr: 1.e-2
   optimizer: 
     name: "adam"
     config:
@@ -65,22 +65,25 @@ lnn_trainer:
   scheduler:
     name: 'plateau'
   criterion:
-    name: 'ce'
+    name: "cb_focal"  # Class Balanced Focal Loss
+  cbf_gamma: 1.0
+  cbf_beta: 0.99
 
 lnn_cfc:
   hidden_size: 32
   output_size: 3
   use_mixed: true # adds an LSTM into the mix
-  backbone_dropout: 0.2
+  backbone_dropout: 0.1
   backbone_layers: 1
   activation: lecun_tanh
 
 lnn_cfc_trainer:
+  global_to_target_split: 0.5
   batch_size: 16
-  seq_len: 30
+  seq_len: 80
   fine_tune_lr_ratio: 0.1
-  epochs: 200
-  lr: 2.e-2
+  epochs: 100
+  lr: 1.e-2
   optimizer: 
     name: "adam"
     config:
@@ -90,7 +93,9 @@ lnn_cfc_trainer:
   scheduler:
     name: 'plateau'
   criterion:
-    name: 'ce'
+    name: "cb_focal"  # Class Balanced Focal Loss
+  cbf_gamma: 1.0
+  cbf_beta: 0.99
 
 lnn_ncps:
   n_layers: 6
@@ -102,6 +107,7 @@ lnn_ncps:
   use_mixed: false # adds an LSTM into the mix
 
 lnn_ncps_trainer:
+  global_to_target_split: 0.82
   batch_size: 16
   seq_len: 30
   fine_tune_lr_ratio: 0.1
@@ -139,6 +145,7 @@ transformer:
   pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
 
 transformer_trainer:
+  global_to_target_split: 0.30
   batch_size: 128
   seq_len: 20
   epochs: 200
