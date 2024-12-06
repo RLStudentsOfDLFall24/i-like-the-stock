@@ -2,6 +2,7 @@ from collections import namedtuple
 
 import pandas as pd
 import torch as th
+from src.models.baselines import RiddlerModel
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN, LNN_NCPS
@@ -12,7 +13,17 @@ from training_tools.eval import evaluate
 
 import yaml
 
-MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': CfC_LNN, 'lnn_ncps': LNN_NCPS}
+MODEL_TYPES = {
+    'rnn':RNN, 
+    'transformer':STTransformer, 
+    'lnn':LNN, 
+    'lnn_cfc': CfC_LNN, 
+    'lnn_ncps': LNN_NCPS,
+    'baseline_riddler': RiddlerModel,
+    'baseline_uniform': RiddlerModel,
+    'baseline_oops_all_sell': RiddlerModel,
+    'baseline_oops_all_buy': RiddlerModel,
+}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
@@ -29,8 +40,13 @@ def run():
     for m in config_data['model_types']:
         if m not in MODEL_TYPES:
             raise ValueError('Model type must be one of: ' + str(MODEL_TYPES))
+        
+        trainer_param_prefix = m
+        if str.startswith(m, 'baseline'):
+            trainer_param_prefix = 'baseline'
+
         params = config_data[m]
-        trainer_params = config_data[m+'_trainer']
+        trainer_params = config_data[trainer_param_prefix+'_trainer']
         models.append(Model(m, MODEL_TYPES[m], params, trainer_params, device))
 
     if 'train' in config_data['mode']:
@@ -54,7 +70,8 @@ def run():
                 model_params=m.params,
                 trainer_params=m.trainer_params,
                 seed=1984,
-                split=split)
+                split=split,
+                key=m.key)
 
             print('Avg Test Loss:',eval_res[4],
                 '\nTest Accuracy:', eval_res[5],
