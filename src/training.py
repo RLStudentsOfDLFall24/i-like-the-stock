@@ -100,21 +100,20 @@ def train_model(
         simulate=True
     )
     # rename the value column to be the model type
-    model_name = model.__class__.__name__[0:3]
+    model_name = kwargs['key'] if 'key' in kwargs else model.__class__.__name__
     sim_df.rename(
         columns={"value": model_name, "price": symbol},
         inplace=True
     )
 
-    # Add first three characters of the model name to the DataFrame
-    # sim_df["model"] = model.__class__.__name__[0:3]
+    # Add first thr ee characters of the model name to the DataFrame
 
     if writer is not None:
         writer.add_scalar("Loss/test", test_loss_avg, epochs)
         writer.add_scalar("Accuracy/test", test_acc, epochs)
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
-
+ 
         # We can also compute cumulative returns and add that to the tensorboard
         cum_ret = (sim_df[model_name].iloc[-1] - sim_df[model_name].iloc[0]) / sim_df[model_name].iloc[0]
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
