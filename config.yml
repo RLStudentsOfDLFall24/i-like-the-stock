@@ -145,7 +145,7 @@ transformer:
   pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
 
 transformer_trainer:
-  global_to_target_split: 0.75
+  global_to_target_split: 0.30
   batch_size: 128
   seq_len: 20
   epochs: 200
