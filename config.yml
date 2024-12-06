@@ -24,8 +24,8 @@ global_params:
   log_splits: False
 
 baseline_riddler:
-  buy_percent: 0.31
-  sell_percent: 0.62
+  buy_percent: 0.22
+  sell_percent: 0.71
   hold_percent: 0.07
   seed: 1984
 
