@@ -12,6 +12,7 @@ from training_tools.utils import plot_simulation_result
 from training_tools.eval import evaluate
 
 import yaml
+import numpy as np
 
 MODEL_TYPES = {
     'rnn':RNN, 
@@ -55,6 +56,7 @@ def run():
         target_symbol = config_data['global_params']['target_symbol']
 
         sim_results = []
+        perf_results = []
         for m in models:
             seq_len = m.trainer_params['seq_len']
             batch_size = m.trainer_params['batch_size']
@@ -77,9 +79,15 @@ def run():
                 '\nTest Accuracy:', eval_res[5],
                   '\nF1:',eval_res[6],
                   '\nPred Dist:',eval_res[7],
-                  '\nMCC:',eval_res[8])
+                  '\nMCC:',eval_res[8],
+                  '\nAverage Epoch time:', eval_res[-1][0][:, 0].mean(),
+                  '\nAverage Train time:', eval_res[-1][0][:, 1].mean(),
+                  '\nAverage Validate time:', eval_res[-1][0][:, 2].mean(),
+                  '\nTest time:', eval_res[-1][1],
+                )
 
-            sim_results.append(eval_res[-1])
+            sim_results.append(eval_res[-2])
+            perf_results.append(np.concat((eval_res[-1][0].mean(0), [eval_res[-1][1]])))
         # Merge simulations, keep only one of the symbol price columns
         sim_df = pd.concat(sim_results, axis=1)
         not_dupes = ~sim_df.columns.duplicated()
