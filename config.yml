@@ -27,21 +27,25 @@ baseline_riddler:
   buy_percent: 0.31
   sell_percent: 0.62
   hold_percent: 0.07
+  seed: 1984
 
 baseline_uniform:
   buy_percent: 0.333
   sell_percent: 0.333
   hold_percent: 0.333
+  seed: 1984
 
 baseline_oops_all_sell:
   buy_percent: 0.0
   sell_percent: 1.0
   hold_percent: 0.0
+  seed: 1984
 
 baseline_oops_all_buy:
   buy_percent: 1.0
   sell_percent: 0.0
   hold_percent: 0.0
+  seed: 1984
 
 baseline_trainer:
   global_to_target_split: 0.82
