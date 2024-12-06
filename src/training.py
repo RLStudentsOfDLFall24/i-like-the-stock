@@ -245,7 +245,7 @@ def run_grid_search(
     # Begin main run loop
     run_start_ts = int(datetime.now().timestamp())
     for trial, config in enumerate(search_configs):
-        criterion = config['trainer_params']['criterion']
+        criterion = config['trainer_params']['criterion']['name']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
         _, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim = (run_experiment
