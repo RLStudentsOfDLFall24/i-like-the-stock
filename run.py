@@ -40,9 +40,9 @@ def run():
 
         sim_results = []
         for m in models:
-            seq_len = trainer_params['seq_len']
-            batch_size = trainer_params['batch_size']
-            split = trainer_params['global_to_target_split']
+            seq_len = m.trainer_params['seq_len']
+            batch_size = m.trainer_params['batch_size']
+            split = m.trainer_params['global_to_target_split']
             print('Starting training for ', m)
             eval_res = run_experiment(
                 model=m.classname,
