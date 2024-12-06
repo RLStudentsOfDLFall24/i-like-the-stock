@@ -1,0 +1,32 @@
+# .github/workflows/main.yml
+name: Main
+on: [push]
+
+jobs:
+  my_job:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Upload to gdrive
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.credentials }}
+          filename: "*"
+          folderId: ${{ secrets.folderId }}
+          overwrite: "true" # optional boolean
+      - name: Make Directory Structure
+        run: |
+          mkdir -p w/x/y
+          date +%s > w/x/y/z
+      - name: Mirror Directory Structure
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.DRIVE_CREDENTIALS }}
+          filename: w/x/y/z
+          folderId: ${{ secrets.folderId }}
+          overwrite: "true"
+          mirrorDirectoryStructure: "true"
