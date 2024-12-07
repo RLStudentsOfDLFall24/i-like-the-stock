@@ -84,6 +84,9 @@ def get_data(
     target_valid = None
     target_test = None
 
+    if target_symbol not in train_symbols:
+        train_symbols.append(target_symbol)
+
     for symbol in train_symbols:
         train_data, valid_data, test_data = create_datasets(
             symbol,
@@ -93,7 +96,8 @@ def get_data(
             root=f"{root}/data/clean"
         )
 
-        trains.append(train_data)
+        if symbol in train_symbols:
+            trains.append(train_data)
         if symbol == target_symbol:
             target_train = train_data
             target_valid = valid_data

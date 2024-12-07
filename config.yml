@@ -3,35 +3,36 @@ mode:
   #- eval
 
 model_types:
-  #- rnn
+  - rnn
   #- transformer
   #- lnn
-  - lnn_cfc
+  #- lnn_cfc
   #- lnn_ncps
 
 global_params:
   train_symbols:
   - "atnf"
-  - "bivi"
+  #- "bivi"
   - "cycc"
   - "vtak"
   - "spx"
-  target_symbol: "atnf"
+  target_symbol: "bivi"
   log_splits: False
 
 rnn:
-  hidden_size: 24
-  dropout: 0.21
+  hidden_size: 32
+  dropout: 0.2
   num_layers: 2
   num_outputs: 3
+  init_scaling: 0.5
 
 rnn_trainer:
-  global_to_target_split: 0.82
-  batch_size: 20
-  seq_len: 75
+  global_to_target_split: 0.8
+  batch_size: 32
+  seq_len: 256
   epochs: 100
   lr: 5.e-6
-  fine_tune_lr_ratio: 0.1
+  fine_tune_lr_ratio: 0.08
   optimizer:
     name: "adam"
     config:
@@ -42,6 +43,8 @@ rnn_trainer:
     name: 'plateau'
   criterion:
     name: "ce"
+  #cbf_gamma: 1.0
+  #cbf_beta: 0.99
 
 lnn:
   n_layers: 6
