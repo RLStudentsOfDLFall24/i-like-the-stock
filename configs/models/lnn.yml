@@ -8,9 +8,9 @@ trainer:
   global_to_target_split: 0.2
   batch_size: 128
   seq_len: 40
-  fine_tune_lr_ratio: 0.1
+  fine_tune_lr_ratio: 0.08
   epochs: 200
-  lr: 2.e-2
+  lr: 5.e-6
   optimizer: 
     name: "adam"
     config:
