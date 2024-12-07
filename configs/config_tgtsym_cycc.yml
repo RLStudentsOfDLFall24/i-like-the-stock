@@ -10,7 +10,6 @@ training_params:
   train_symbols:
   - "atnf"
   - "bivi"
-  - "cycc"
   - "vtak"
   - "spx"
   target_symbol: "cycc"

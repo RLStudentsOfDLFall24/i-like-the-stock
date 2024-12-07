@@ -9,7 +9,6 @@ run_models:
 training_params:
   train_symbols:
   - "atnf"
-  - "bivi"
   - "cycc"
   - "vtak"
   - "spx"
