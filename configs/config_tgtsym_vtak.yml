@@ -1,0 +1,17 @@
+run_models:
+  - baseline_uniform
+  - baseline_tuned
+  - rnn
+  - transformer
+  - lnn
+  - lnn_cfc
+
+training_params:
+  train_symbols:
+  - "atnf"
+  - "bivi"
+  - "cycc"
+  - "vtak"
+  - "spx"
+  target_symbol: "vtak"
+  log_splits: False

@@ -16,9 +16,9 @@ class RiddlerModel(AbstractModel):
 
         self.rng = np.random.default_rng(kwargs['seed'] if 'seed' in kwargs else None)
 
-        self.these_parameters_do_nothing = torch.nn.Parameter(torch.ones((84, 84)), requires_grad=True)
+        self.these_parameters_do_nothing = torch.nn.Parameter(torch.ones((84, 84)).to(device), requires_grad=True)
 
-        self.percents = torch.Tensor([buy_percent, hold_percent, sell_percent]).to(self.device)
+        self.percents = torch.Tensor([buy_percent, hold_percent, sell_percent])
         
         if self.percents.sum() != 1.0:
             self.percents = torch.nn.functional.softmax(self.percents, dim=-1)

@@ -1,0 +1,28 @@
+params:
+  hidden_size: 32
+  output_size: 3
+  use_mixed: true # adds an LSTM into the mix
+  backbone_dropout: 0.01
+  backbone_layers: 1
+  activation: lecun_tanh
+
+trainer:
+  global_to_target_split: 0.25
+  batch_size: 128
+  seq_len: 40
+  fine_tune_lr_ratio: 0.1
+  epochs: 200
+  lr: 1.e-2
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-7
+      betas: [0.9, 0.99]
+      weight_decay: 0
+  scheduler:
+    name: 'plateau'
+  criterion:
+    name: "cb_focal"  # Class Balanced Focal Loss
+    config:
+      gamma: 1.0
+      beta: 0.99

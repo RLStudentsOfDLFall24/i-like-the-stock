@@ -1,0 +1,40 @@
+params:
+  model_dim: 64
+  seq_len: 20
+  ignore_cols:
+    - 0
+  time_idx:
+    - 6
+    - 7
+    - 8
+  fc_dim: 1024
+  fc_dropout: 0.1
+  mlp_dim: 2048
+  mlp_dropout: 0.3
+  n_frequencies: 64
+  num_encoders: 3
+  num_heads: 8
+  num_lstm_layers: 2
+  lstm_dim: 256
+  pretrained_t2v: data/t2v_weights/t2v_n64_mlp1024_lr6.310e-05.pth
+
+trainer:
+  global_to_target_split: 0.30
+  batch_size: 128
+  seq_len: 20
+  epochs: 200
+  lr: 5.e-5
+  fine_tune_lr_ratio: 0.1
+  optimizer:
+    name: "adam"
+    config:
+      eps: 1.e-8
+      betas: [0.9, 0.99]
+      weight_decay: 1.e-3
+  scheduler:
+    name: 'plateau'
+  criterion:
+    name: "cb_focal"  # Class Balanced Focal Loss
+    config:
+      gamma: 1.0
+      beta: 0.99

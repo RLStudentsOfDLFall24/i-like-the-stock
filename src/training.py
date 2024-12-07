@@ -65,7 +65,7 @@ def train_model(
     )
 
     # Set the criterion
-    criterion = get_criterion(crit_type, train_label_ct, trainer_params, device)
+    criterion = get_criterion(crit_type, train_label_ct, trainer_params["criterion"]['config'] if 'config' in trainer_params['criterion'] else None, device)
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 

@@ -49,6 +49,10 @@ def run_st_grid_search():
                     "fine_tune_lr_ratio": 0.1,
                     "criterion": {
                         "name": "cb_focal",
+                        "config": {
+                            "gamma": 1.0,
+                            "beta": 0.99,
+                        },
                     },
                     "scheduler": {
                         "name": "plateau",
@@ -63,8 +67,6 @@ def run_st_grid_search():
                     },
                     "lr": lr,
                     "epochs": 200,
-                    "cbf_gamma": 1.0,
-                    "cbf_beta": 0.99,
                 },
                 "model_params": {
                     "symbol": symbol,

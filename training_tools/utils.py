@@ -51,7 +51,7 @@ def get_scheduler(type: str, optimizer: torch.optim.Optimizer, config: dict):
         raise ValueError(f"Unknown scheduler: {type}")
 
 
-def get_criterion(type: str, train_label_ct: Optional[torch.Tensor] = None, trainer_params = None, device='cpu'):
+def get_criterion(type: str, train_label_ct: Optional[torch.Tensor] = None, crit_params = None, device='cpu'):
   match type:
     case 'ce':
       weight = None
@@ -66,8 +66,8 @@ def get_criterion(type: str, train_label_ct: Optional[torch.Tensor] = None, trai
     case 'cb_focal':
       return FocalLoss(
         class_counts=train_label_ct.to(device),
-        gamma=trainer_params['cbf_gamma'],
-        beta=trainer_params['cbf_beta'],
+        gamma=crit_params['gamma'],
+        beta=crit_params['beta'],
       )
 
 

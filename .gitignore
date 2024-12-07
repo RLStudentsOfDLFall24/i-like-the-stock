@@ -312,3 +312,4 @@ __pycache__
 figures/*
 
 test.ipynb
+test_*.yml
