@@ -310,3 +310,9 @@ __pycache__
 
 *.vim
 figures/*
+
+test.ipynb
+test_*.yml
+
+tensorboard/*
+!tensorboard/.gitsave

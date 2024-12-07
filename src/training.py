@@ -1,4 +1,5 @@
-from datetime import datetime
+import datetime
+import time
 
 import numpy as np
 import pandas as pd
@@ -29,7 +30,8 @@ def train_model(
         trainer_params: dict = None,
         symbol: str = "default",
         **kwargs
-) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
+) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame, \
+           tuple[np.ndarray, float]]:
     """Train a model and test the methods"""
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
     epochs: int = trainer_params['epochs']
@@ -63,15 +65,23 @@ def train_model(
     )
 
     # Set the criterion
-    criterion = get_criterion(crit_type, train_label_ct, trainer_params, device)
+    criterion = get_criterion(crit_type, train_label_ct, trainer_params["criterion"]['config'] if 'config' in trainer_params['criterion'] else None, device)
     train_losses = np.zeros(epochs)
     valid_losses = np.zeros(epochs)
 
+    performance_data = []
+
     for epoch in range(epochs):
+        epoch_start = time.perf_counter()
         # Run training over the batches
+        train_start = time.perf_counter()
         _, train_loss_avg = train(model, train_loader, optimizer, criterion, device, epoch, writer=writer)
+        train_time_data = time.perf_counter() - train_start
         # Evaluate the validation set
+
+        eval_start = time.perf_counter()
         _, v_loss_avg, v_acc, v_f1, v_pred_dist, v_mcc, _ = evaluate(model, valid_loader, criterion, device=device)
+        eval_time_data = time.perf_counter() - eval_start
 
         # Log the progress
         train_losses[epoch] = train_loss_avg
@@ -92,9 +102,12 @@ def train_model(
 
         # Update the progress bar to also show the loss
         pred_string = " - ".join([f"C{ix} {x:.3f}" for ix, x in enumerate(v_pred_dist)])
-        print(f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string}")
+        print(f"E: {epoch + 1} | Train: {train_loss_avg:.4f} | Valid: {v_loss_avg:.4f} | V_Pred Dist: {pred_string} | Train Time: {train_time_data:.3f} seconds |  Validate Time: {eval_time_data:.3f} seconds")
+
+        performance_data.append([time.perf_counter() - epoch_start, train_time_data, eval_time_data])
 
     # Evaluate the test set
+    start_test = time.perf_counter()
     test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df = evaluate(
         model,
         test_loader,
@@ -102,27 +115,27 @@ def train_model(
         device=device,
         simulate=True
     )
+    test_time = time.perf_counter() - start_test
+
     # rename the value column to be the model type
-    model_name = model.__class__.__name__[0:3]
+    model_name = kwargs['key'] if 'key' in kwargs else model.__class__.__name__
     sim_df.rename(
         columns={"value": model_name, "price": symbol},
         inplace=True
     )
-
-    # Add first three characters of the model name to the DataFrame
-    # sim_df["model"] = model.__class__.__name__[0:3]
 
     if writer is not None:
         writer.add_scalar("Loss/test", test_loss_avg, epochs)
         writer.add_scalar("Accuracy/test", test_acc, epochs)
         writer.add_scalar("F1/test", test_f1, epochs)
         writer.add_scalar("MCC/test", test_mcc, epochs)
-
+ 
         # We can also compute cumulative returns and add that to the tensorboard
         cum_ret = (sim_df[model_name].iloc[-1] - sim_df[model_name].iloc[0]) / sim_df[model_name].iloc[0]
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
-    return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df
+    return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df, \
+            (np.array(performance_data, dtype=np.float32), test_time)
 
 
 def run_experiment(
@@ -138,7 +151,8 @@ def run_experiment(
         root: str = ".",
         seed: int = 0,
         **kwargs
-) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame]:
+) -> tuple[AbstractModel, np.ndarray, np.ndarray, float, float, float, float, th.Tensor, float, pd.DataFrame, \
+           tuple[np.ndarray, float]]:
     """
     Load the data symbols and create PriceSeriesDatasets.
 
@@ -251,7 +265,7 @@ def run_grid_search(
         criterion = config['trainer_params']['criterion']['name']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
-        _, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim = (run_experiment
+        _, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim, _ = (run_experiment
             (
             model=model_type,
             log_splits=trial == 0,

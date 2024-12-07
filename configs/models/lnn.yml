@@ -1,0 +1,26 @@
+params:
+  n_layers: 6
+  hidden_size: 32
+  output_size: 3
+  activation: sigmoid
+
+trainer:
+  global_to_target_split: 0.2
+  batch_size: 128
+  seq_len: 40
+  fine_tune_lr_ratio: 0.08
+  epochs: 200
+  lr: 5.e-6
+  optimizer: 
+    name: "adam"
+    config:
+      eps: 1.e-7
+      betas: [0.9, 0.99]
+      weight_decay: 0
+  scheduler:
+    name: 'plateau'
+  criterion:
+    name: "cb_focal"  # Class Balanced Focal Loss
+    config:
+      gamma: 1.0
+      beta: 0.99
