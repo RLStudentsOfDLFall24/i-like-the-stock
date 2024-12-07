@@ -134,7 +134,7 @@ def run():
 
     train, valid, test = create_datasets(
         "atnf",
-        root='../../data/clean',
+        root='data/clean',
         seq_len=10,
     )
 

@@ -8,11 +8,13 @@ from src.models.lnn import LNN, LNN_NCPS
 from src.models.lnn_cfc import CfC_LNN
 from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
+from training_tools.eval import evaluate
 
 import yaml
 
 MODEL_TYPES = {'rnn':RNN, 'transformer':STTransformer, 'lnn':LNN, 'lnn_cfc': CfC_LNN, 'lnn_ncps': LNN_NCPS}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
+
 
 
 def run():
@@ -76,15 +78,10 @@ def run():
             fig_name=f"all_models_{target_symbol}",
         )
 
-    if 'eval' in config_data['mode']:
-        for m in models:
-            print('Running eval for ', m)
-            #fwd = m(th.Tensor(10, 10))
-
-            #print(fwd)
-            pass
-    pass
-
+        if 'eval' in config_data['mode']:
+            for m in models:
+                print('Running eval for ', m)
+                #res = evaluate(
 
 if __name__ == '__main__':
     run()

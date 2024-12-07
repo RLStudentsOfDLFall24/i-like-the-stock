@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from .abstract_model import AbstractModel
+from src.models.abstract_model import AbstractModel
 
 
 class RNN(AbstractModel):
@@ -10,6 +10,7 @@ class RNN(AbstractModel):
                  hidden_size: int,
                  num_layers: int,
                  dropout: float,
+                 init_scaling: float,
                  device: torch.device):
         super(RNN, self).__init__(d_features=d_features, device=device)
 
@@ -20,9 +21,10 @@ class RNN(AbstractModel):
                             dropout=dropout)
 
         #<IRNN paper implementation>
-        torch.nn.init.eye_(self.model.weight_hh_l0)
+        self.model.weight_hh_l0 = torch.nn.Parameter(torch.nn.init.eye_(self.model.weight_hh_l0)*init_scaling)
         torch.nn.init.zeros_(self.model.bias_hh_l0)
-        torch.nn.init.eye_(self.model.weight_ih_l0)
+        self.model.weight_ih_l0 = torch.nn.Parameter(torch.nn.init.eye_(self.model.weight_ih_l0)*init_scaling)
+        #torch.nn.init.eye_(self.model.weight_ih_l0)
         torch.nn.init.zeros_(self.model.bias_ih_l0)
         #</IRNN paper>
 

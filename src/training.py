@@ -13,6 +13,8 @@ from training_tools import get_criterion, get_optimizer, get_scheduler, train, e
     plot_simulation_result
 from training_tools.utils import get_data
 
+#https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
+get_param_count = lambda model : sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def train_model(
         model: AbstractModel,
@@ -42,6 +44,7 @@ def train_model(
             device=device,
             **model_params
         )
+        print('Model Class:',model_class,'Param count:',get_param_count(model))
 
     # Set the optimizer
     optimizer = get_optimizer(
