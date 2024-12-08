@@ -5,14 +5,12 @@ import os
 
 import pandas as pd
 import torch as th
-from src.models.baselines import RiddlerModel
 from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
 from src.models.lnn_cfc import CfC_LNN
 from src.training import run_experiment, get_spx_benchmark
 from training_tools.utils import plot_simulation_result
-from training_tools.eval import evaluate
 
 import yaml
 import numpy as np
@@ -22,8 +20,6 @@ MODEL_TYPES = {
     'transformer':STTransformer, 
     'lnn':LNN, 
     'lnn_cfc': CfC_LNN, 
-    'baseline_tuned': RiddlerModel,
-    'baseline_uniform': RiddlerModel,
 }
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
