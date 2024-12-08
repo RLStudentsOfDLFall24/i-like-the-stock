@@ -135,7 +135,7 @@ def train_model(
         writer.add_scalar("Simulation/Cumulative Return", cum_ret, epochs)
 
     return model, train_losses, valid_losses, test_loss, test_loss_avg, test_acc, test_f1, test_pred_dist, test_mcc, sim_df, \
-            (np.array(performance_data, dtype=np.float32), test_time)
+            np.array(performance_data, dtype=np.float32), test_time
 
 
 def run_experiment(
@@ -191,7 +191,7 @@ def run_experiment(
     epochs = trainer_params['epochs']
     trainer_params['epochs'] = int(split * epochs)
 
-    pretrain = train_model(
+    pretrain  = train_model(
         model=None,
         x_dim=target_train.feature_dim,
         train_loader=train_loader,
@@ -209,7 +209,7 @@ def run_experiment(
     trainer_params['lr'] = trainer_params['lr'] * trainer_params['fine_tune_lr_ratio']
 
     # finetune
-    return train_model(
+    results = train_model(
         model=pretrain[0],
         x_dim=target_train.feature_dim,
         train_loader=train_loader,
@@ -222,6 +222,8 @@ def run_experiment(
         symbol=target_symbol,
         **kwargs
     )
+
+    return results, (pretrain[4], pretrain[-2], pretrain[-1])
 
 
 def run_grid_search(
@@ -265,7 +267,7 @@ def run_grid_search(
         criterion = config['trainer_params']['criterion']['name']
         writer_dir = f"{root}/data/tensorboard/{run_start_ts}/{criterion}/{trial_prefix}_{trial:03}"
         writer = SummaryWriter(log_dir=writer_dir) if use_writer else None
-        _, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim, _ = (run_experiment
+        (_, tr_loss, v_loss, tst_loss, tst_loss_avg, tst_acc, tst_f1, tst_pred_dist, tst_mcc, sim, _), _ = (run_experiment
             (
             model=model_type,
             log_splits=trial == 0,
