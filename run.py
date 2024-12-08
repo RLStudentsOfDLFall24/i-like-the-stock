@@ -184,7 +184,7 @@ def run(config_file: str = None):
         del experiment['Pred Dist']
 
         df = pd.DataFrame(experiment)
-        pd_data = pd.concat(pd_data, df) if pd_data is not None else df
+        pd_data = pd.concat((pd_data, df)) if pd_data is not None else df
 
     pd_data.to_csv('./data/collected_experimental_data.csv', index=False)
 
