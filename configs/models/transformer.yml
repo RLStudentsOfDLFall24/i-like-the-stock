@@ -7,10 +7,10 @@ params:
     - 6
     - 7
     - 8
-  fc_dim: 1024
-  fc_dropout: 0.2
+  fc_dim: 512
+  fc_dropout: 0.1
   mlp_dim: 2048
-  mlp_dropout: 0.4
+  mlp_dropout: 0.3
   n_frequencies: 64
   num_encoders: 2
   num_heads: 4
