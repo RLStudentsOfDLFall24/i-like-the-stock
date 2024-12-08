@@ -5,12 +5,12 @@ params:
   activation: sigmoid
 
 trainer:
-  global_to_target_split: 0.8
+  global_to_target_split: 0.58
   batch_size: 128
   seq_len: 128
   fine_tune_lr_ratio: 0.08
   epochs: 100
-  lr: 5.e-6
+  lr: 1.e-6
   optimizer: 
     name: "adam"
     config:
