@@ -110,7 +110,7 @@ def run(config_file: str = None):
 
             sim_results.append(eval_res[-2])
             
-            perf_results.append(np.concat((eval_res[-1][0].mean(0) if eval_res[-1][0].shape[0] > 0 else np.zeros(3), [eval_res[-1][1]])))
+            perf_results.append(np.concatenate((eval_res[-1][0].mean(0) if eval_res[-1][0].shape[0] > 0 else np.zeros(3), [eval_res[-1][1]])))
 
         # Merge simulations, keep only one of the symbol price columns
         sim_df = pd.concat(sim_results, axis=1)
