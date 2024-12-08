@@ -84,8 +84,15 @@ def get_data(
     target_valid = None
     target_test = None
 
+    # if we don't find the symbol in our configs, create target data here
     if target_symbol not in train_symbols:
-        train_symbols.append(target_symbol)
+        target_train, target_valid, target_test = create_datasets(
+            target_symbol,
+            seq_len=seq_len,
+            fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
+            log_splits=log_splits,
+            root=f"{root}/data/clean"
+        )
 
     for symbol in train_symbols:
         train_data, valid_data, test_data = create_datasets(
@@ -98,6 +105,9 @@ def get_data(
 
         if symbol in train_symbols:
             trains.append(train_data)
+
+        # this checks if the symbol is the target symbol in the event that it is 
+        # part of the training data set.
         if symbol == target_symbol:
             target_train = train_data
             target_valid = valid_data
