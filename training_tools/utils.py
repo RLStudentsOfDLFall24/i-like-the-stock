@@ -87,7 +87,7 @@ def get_data(
     # if we don't find the symbol in our configs, create target data here
     if target_symbol not in train_symbols:
         target_train, target_valid, target_test = create_datasets(
-            symbol,
+            target_symbol,
             seq_len=seq_len,
             fixed_scaling=[(7, 3000.), (8, 12.), (9, 31.)],
             log_splits=log_splits,
