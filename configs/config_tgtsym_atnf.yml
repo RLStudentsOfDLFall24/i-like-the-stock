@@ -2,11 +2,9 @@ run_models:
   - rnn
   - transformer
   - lnn
-  - lnn_cfc
 
 training_params:
   train_symbols:
-  - "atnf"
   - "bivi"
   - "cycc"
   - "vtak"

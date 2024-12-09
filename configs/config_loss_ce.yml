@@ -2,7 +2,6 @@ run_models:
   - rnn
   - transformer
   - lnn
-  - lnn_cfc
 
 training_params:
   train_symbols:
@@ -11,7 +10,7 @@ training_params:
   - "cycc"
   - "vtak"
   - "spx"
-  target_symbol: "atnf"
+  target_symbol: "bivi"
   log_splits: False
 
 overrides:

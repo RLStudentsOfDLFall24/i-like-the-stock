@@ -9,7 +9,7 @@ from src.models.rnn import RNN
 from src.models.sttransformer import STTransformer
 from src.models.lnn import LNN
 from src.models.lnn_cfc import CfC_LNN
-from src.training import run_experiment, get_spx_benchmark
+from src.training import run_experiment, get_spx_benchmark, get_param_count
 from training_tools.utils import plot_simulation_result
 
 import yaml
@@ -41,9 +41,9 @@ def run(config_file: str = None):
                 with open(full_path, 'r') as f:
                     configs[os.path.basename(full_path)] = yaml.safe_load(f)
                 
-
-    for key in configs:
-        config_data = configs[key]
+    experiment_data = {}
+    for config_key in configs:
+        config_data = configs[config_key]
         models = []
 
         optimizer_override = config_data['overrides']['optimizer'] if 'overrides' in config_data and 'optimizer' in config_data['overrides'] else None
@@ -78,13 +78,35 @@ def run(config_file: str = None):
         target_symbol = config_data['training_params']['target_symbol']
 
         sim_results = []
-        perf_results = []
+        perf_results = {
+            'Experiment': [],
+            'Model': [],
+            'Param Count': [],
+            'Pretrain Avg Test Loss': [],
+            'Avg Test Loss': [],
+            'Test Accuracy': [],
+            'F1': [],
+            'Pred Dist': [],
+            'MCC': [],
+            'Pretrain Total Training time': [],
+            'Pretrain Average Epoch time': [],
+            'Pretrain Average Train time': [],
+            'Pretrain Average Validate time': [],
+            'Pretrain Test time': [],
+            'Total Training time': [],
+            'Average Epoch time': [],
+            'Average Train time': [],
+            'Average Validate time': [],
+            'Test time': [],
+            'Cumulative Return': [],
+        }
         for m in models:
             seq_len = m.trainer_params['seq_len']
             batch_size = m.trainer_params['batch_size']
             split = m.trainer_params['global_to_target_split']
             print('Starting training for ', m)
-            eval_res = run_experiment(
+            (model, _, _, _, avg_test_loss, test_acc, f1, pred_dist, mcc, simulate, times, test_times), \
+                (pre_avg_test_loss, pre_times, pre_test_times) = run_experiment(
                 model=m.classname,
                 train_symbols=train_symbols,
                 target_symbol=target_symbol,
@@ -97,21 +119,45 @@ def run(config_file: str = None):
                 split=split,
                 key=m.key)
 
-            print('Avg Test Loss:',eval_res[4],
-                '\nTest Accuracy:', eval_res[5],
-                '\nF1:',eval_res[6],
-                '\nPred Dist:',eval_res[7],
-                '\nMCC:',eval_res[8],
-                '\nAverage Epoch time:', eval_res[-1][0][:, 0].mean() if eval_res[-1][0].shape[0] > 0 else 0,
-                '\nAverage Train time:', eval_res[-1][0][:, 1].mean() if eval_res[-1][0].shape[0] > 0 else 0,
-                '\nAverage Validate time:', eval_res[-1][0][:, 2].mean() if eval_res[-1][0].shape[0] > 0 else 0,
-                '\nTest time:', eval_res[-1][1],
+            perf_results['Model'].append(m.key)
+            perf_results['Param Count'].append(get_param_count(model))
+            perf_results['Avg Test Loss'].append(avg_test_loss)
+            perf_results['Pretrain Avg Test Loss'].append(pre_avg_test_loss)
+            perf_results['Test Accuracy'].append(test_acc)
+            perf_results['F1'].append(f1)
+            perf_results['Pred Dist'].append(pred_dist.numpy())
+            perf_results['MCC'].append(mcc)
+            perf_results['Total Training time'].append(times[:, 1].sum() if times.shape[0] > 0 else 0)
+            perf_results['Average Epoch time'].append(times[:, 0].mean() if times.shape[0] > 0 else 0)
+            perf_results['Average Train time'].append(times[:, 1].mean() if times.shape[0] > 0 else 0)
+            perf_results['Average Validate time'].append(times[:, 2].sum() if times.shape[0] > 0 else 0)
+            perf_results['Test time'].append(test_times)
+            perf_results['Pretrain Total Training time'].append(pre_times[:, 1].sum() if pre_times.shape[0] > 0 else 0)
+            perf_results['Pretrain Average Epoch time'].append(pre_times[:, 0].mean() if pre_times.shape[0] > 0 else 0)
+            perf_results['Pretrain Average Train time'].append(pre_times[:, 1].mean() if pre_times.shape[0] > 0 else 0)
+            perf_results['Pretrain Average Validate time'].append(pre_times[:, 2].sum() if pre_times.shape[0] > 0 else 0)
+            perf_results['Pretrain Test time'].append(pre_test_times)
+            perf_results['Cumulative Return'].append((simulate.iloc[-1, 0] - simulate.iloc[0, 0]) / simulate.iloc[0, 0])
+
+            print(
+                  'Avg Test Loss:', perf_results['Avg Test Loss'][-1],
+                '\nTest Accuracy:', perf_results['Test Accuracy'][-1],
+                '\nF1:',perf_results['F1'][-1],
+                '\nPred Dist:', perf_results['Pred Dist'][-1],
+                '\nMCC:', mcc,
+                '\nTotal Train time:', times[:, 0].sum() if times.shape[0] > 0 else 0,
+                '\nAverage Epoch time:', times[:, 0].mean() if times.shape[0] > 0 else 0,
+                '\nAverage Train time:', times[:, 1].mean() if times.shape[0] > 0 else 0,
+                '\nAverage Validate time:', times[:, 2].mean() if times[0].shape[0] > 0 else 0,
+                '\nTest time:', test_times,
                 )
 
-            sim_results.append(eval_res[-2])
-            
-            perf_results.append(np.concatenate((eval_res[-1][0].mean(0) if eval_res[-1][0].shape[0] > 0 else np.zeros(3), [eval_res[-1][1]])))
-
+            sim_results.append(simulate)
+        
+        for key in perf_results:
+            perf_results[key] = np.array(perf_results[key])
+        experiment_data[config_key] = perf_results
+        
         # Merge simulations, keep only one of the symbol price columns
         sim_df = pd.concat(sim_results, axis=1)
         not_dupes = ~sim_df.columns.duplicated()
@@ -124,8 +170,25 @@ def run(config_file: str = None):
         plot_simulation_result(
             sim_df,
             fig_title=f"Strategy Results | {target_symbol}",
-            fig_name=f"all_models_{target_symbol}_{key}",
+            fig_name=f"all_models_{target_symbol}_{config_key}",
         )
+
+    pd_data = None
+    for key in experiment_data:
+        experiment = experiment_data[key]
+        experiment['Experiment'] = [key] * experiment['Test time'].shape[0]
+        pred_dist = experiment['Pred Dist']
+
+        experiment['Pred Dist: Sell'] = pred_dist[:, 0]
+        experiment['Pred Dist: Hold'] = pred_dist[:, 1]
+        experiment['Pred Dist: Buy'] = pred_dist[:, 2]
+
+        del experiment['Pred Dist']
+
+        df = pd.DataFrame(experiment)
+        pd_data = pd.concat((pd_data, df)) if pd_data is not None else df
+
+    pd_data.to_csv('./data/collected_experimental_data.csv', index=False)
 
 
 if __name__ == '__main__':
