@@ -34,7 +34,4 @@ trainer:
   scheduler:
     name: 'plateau'
   criterion:
-    name: "cb_focal"  # Class Balanced Focal Loss
-    config:
-      gamma: 1.0
-      beta: 0.99
+    name: "ce"  # Class Balanced Focal Loss
