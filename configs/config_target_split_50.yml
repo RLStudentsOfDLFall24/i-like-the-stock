@@ -10,8 +10,8 @@ training_params:
   - "cycc"
   - "vtak"
   - "spx"
-  target_symbol: "atnf"
+  target_symbol: "bivi"
   log_splits: False
 
 overrides:
-  global_to_target_split: 0.82
+  global_to_target_split: 0.50

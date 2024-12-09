@@ -93,6 +93,7 @@ def run(config_file: str = None):
             'Pretrain Average Train time': [],
             'Pretrain Average Validate time': [],
             'Pretrain Test time': [],
+            'Pretrain Split': [],
             'Total Training time': [],
             'Average Epoch time': [],
             'Average Train time': [],
@@ -138,6 +139,7 @@ def run(config_file: str = None):
             perf_results['Pretrain Average Validate time'].append(pre_times[:, 2].sum() if pre_times.shape[0] > 0 else 0)
             perf_results['Pretrain Test time'].append(pre_test_times)
             perf_results['Cumulative Return'].append((simulate.iloc[-1, 0] - simulate.iloc[0, 0]) / simulate.iloc[0, 0])
+            perf_results['Pretrain Split'].append(split)
 
             print(
                   'Avg Test Loss:', perf_results['Avg Test Loss'][-1],

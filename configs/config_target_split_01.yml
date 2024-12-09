@@ -14,4 +14,4 @@ training_params:
   log_splits: False
 
 overrides:
-  global_to_target_split: 0.25
+  global_to_target_split: 0.01
