@@ -191,7 +191,7 @@ def run_experiment(
     epochs = trainer_params['epochs']
     trainer_params['epochs'] = int(split * epochs)
 
-    pretrain  = train_model(
+    pretrain = train_model(
         model=None,
         x_dim=target_train.feature_dim,
         train_loader=train_loader,

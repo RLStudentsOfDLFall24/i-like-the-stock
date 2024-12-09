@@ -98,6 +98,7 @@ def run(config_file: str = None):
             'Average Train time': [],
             'Average Validate time': [],
             'Test time': [],
+            'Cumulative Return': [],
         }
         for m in models:
             seq_len = m.trainer_params['seq_len']
@@ -136,6 +137,7 @@ def run(config_file: str = None):
             perf_results['Pretrain Average Train time'].append(pre_times[:, 1].mean() if pre_times.shape[0] > 0 else 0)
             perf_results['Pretrain Average Validate time'].append(pre_times[:, 2].sum() if pre_times.shape[0] > 0 else 0)
             perf_results['Pretrain Test time'].append(pre_test_times)
+            perf_results['Cumulative Return'].append((simulate.iloc[-1, 0] - simulate.iloc[0, 0]) / simulate.iloc[0, 0])
 
             print(
                   'Avg Test Loss:', perf_results['Avg Test Loss'][-1],
