@@ -147,7 +147,8 @@ def plot_simulation_result(
         sim_df: pd.DataFrame,
         fig_title: str = 'Simulation Results',
         fig_name: str = 'unknown',
-        root: str = '.'
+        root: str = '.',
+        y_lims: tuple[float, float] = (0.0, 2.0)
 ):
     """
     Plot simulation df by the datetime index.
@@ -169,6 +170,7 @@ def plot_simulation_result(
 
     # Set the xlim to the first and last date
     ax.set_xlim([sim_df.index[0], sim_df.index[-1]])
+    ax.set_ylim(y_lims)
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(f'{root}/figures/simulation_results_{fig_name}.png')
