@@ -51,7 +51,7 @@ Gatech\\
 
 %%%%%%%%% ABSTRACT
 \begin{abstract}
-    We apply state-of-the-art Deep Learning approaches to the problem space of short-term trading, using daily market open/close/volume data to create time-series batches of sequences within the dataset. We take 3 different approaches: Spatio-Temporal Transformer (STT), Liquid Neural Network (LNN), and Identity Recurrent Neural Network (IRNN); and attempt to extract signal from high-volatility public company stock movements in the healthcare space. Our results indicate that further investigation is required to create nuanced models that balance buying, selling, and holding inferences to achieve lower training loss. However we have been able to create a profitable trading strategy even with sub-optimal trading accuracy.
+    We apply state-of-the-art Deep Learning approaches to the problem space of short-term trading, using daily market open/close/volume data to create time-series batches of sequences within the dataset. We take 3 different approaches: Spatio-Temporal Transformer (STT), Liquid Time-constant Network (LTCN), and Identity Recurrent Neural Network (IRNN); and attempt to extract signal from high-volatility public company stock movements in the healthcare space. Our results indicate that further investigation is required to create nuanced models that balance buying, selling, and holding inferences to achieve lower training loss. However we have been able to create a profitable trading strategy even with sub-optimal trading accuracy.
 
 \end{abstract}
 
@@ -132,7 +132,7 @@ Human traders that engage with markets on this timescale often use technical ind
     \section{Approach}
 We took existing approaches in other industries and reapplied them to this new-to-us domain, taking a no-frills approach to data engineering, model training, and trading simulation in order to gain a deep (no pun intended) understanding and first-hand experience of the challenges in the space. We decided to structure the task as classification of next day movement - up, down or flat - rather than regression. Simply - we do not care by how much a stock will go up, we only care that it goes up so that we can buy it and subsequently sell when we predict it will reverse direction.
 
-We applied the Liquid Neural Network (LNN), Spatio-Temporal Transformer (STT), and Identity RNN (IRNN) to the 5-stock dataset; we go into the model descriptions below.
+We applied the  Liquid Time-constant Network (LTCN), Spatio-Temporal Transformer (STT), and Identity RNN (IRNN) to the 5-stock dataset; we go into the model descriptions below.
 
     \begin{enumerate}
         \item{The Identity RNN (IRNN) is the simplest of our three models, leveraging the basic Recurrent Neural Network architecture. The name is such because this variant simplifies the initialization to an identity matrix (ones on the diagonal, zeros elsewhere) for the weights and 0’s for the biases to encourage the RNN to behave more like an LSTM. This works because when initializing to the identity matrix, the architecture tends toward an LSTM with the forget gate set to not decay the cell state at all. This is not equivalent to an LSTM but can stand in for one with comparative performance and a lot less parameters (4,000 learned parameters as tested), making for faster training cycles and lower inference latency.}
@@ -146,7 +146,17 @@ Pretrained t2v Embedding
 The t2v module of STT was pre-trained using a simple task of having a date at time $t$ predict the date at $t+1$ for the date range [1900-01-01, 2100-01-01]. This pre-training step provided additional stability during the primary model training and evaluation process. A more complex pre-training task may provide increased benefit, but was outside the scope of this experiment.
             Note: will help pass over once we get this in tex.}
 
-        \item{Liquid Time-Constant Network LTCN is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. It uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins - parameter count was 7,107 as tested - and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks, and to better learn from sequential data, we can always work with Liquid Structural State-Space Models (Liquid S4).  }
+        \item{Liquid Time-Constant Network (LTCN) \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LNN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins - parameter count was 7,107 as tested - and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
+
+        The main piece of the LTCN network is the use of ODE's, a system of equations, which depending on the implementation, could require an exponential number of discretized steps when simulated \cite{hasani_liquid_2020}. Instead, the paper that describes this model develops an ODE solver called a Fused Solver that fuses the explicit and implicit Euler methods. The Fused solver is defined by the following equation:
+\begin{equation}
+    x(t + \Delta t) = \frac{x(t) + \Delta t f(x(t), \textbf{I}(t), t, \theta)A}{1 + \Delta t(1/\tau _ f(x(t), \textbf{I}(t), t, \theta)}
+\end{equation}
+
+        Where $\textbf{I}(t)$ is the M-dimensional input, $\theta$ is the set of parameters, $\tau$
+        is the time constant (this is "the parameter characteriziong the speed and the coupling sensitivity of an ODE" \cite{hasani_liquid_2020} the inverse of which is the membrane capacitance of our neuron \cite{LNN_Tutorial}), $A$ is a bias vector, $x(t)$ is our hidden value (which could be cellularized for a more LSTM experience, or have an LSTM tacked on as was present in the official library implementation \cite{NCP_Github}), $\Delta t$ is the step size, generally defined as $1 / L$ where $L$ = the number of layers or iterations we will run for our ODE solver, and finally $f(.)$ is a non-linear function. In our implementation, which we derived in part from the official library \cite{NCP_Github} and the following step by step tutorial \cite{LNN_Tutorial}, we added a way to switch up the nonlinearity beyond just a sigmoid or tanh, although most other nonlinearities did not train as well as the sigmoid or tanh.
+        }.
+    
     \end{enumerate}
 
 \subsection{Evaluation Metrics}
@@ -179,7 +189,7 @@ Table~\ref{tab:general_results} contains the results we were able to achieve wit
 \hline
         RNN & 0.378, .0837 & .511, .0768 & .543, .0782 & .276, .046 \\
 \hline
-        Transformer & .37, .0446 & .433, .0814 & .0433, .0578 & .323, -.0668 \\
+        Transformer & .37, .0446 & .433, .0815 & .433, .0578 & .323, -.0668 \\
 \hline
         LNN & .52, 0 & .504, 0 & .535, 0 & .496, 0 \\
 \hline
@@ -191,6 +201,22 @@ Table~\ref{tab:general_results} contains the results we were able to achieve wit
 \end{table}
 
 Although we were initially disappointed by the~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence.  <should we more formally lay this out in a table? Class distribution per model on test data>
+
+\begin{table}[h!]
+\begin{center}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Avg. Epoch Time} & \textbf{Avg. Train Time} & \textbf{Avg. Valid Time} \\ \hline
+RNN           & 0.1153                      & 0.1113                         & 0.2171                           \\ \hline
+Transformer   & 0.4647                      & 0.4574                         & 1.1957                           \\ \hline
+LNN           & 3.3816                      & 3.3173                         & 3.2862                           \\ \hline
+\end{tabular}%
+}
+\end{center}
+\caption{Time in seconds of each models' Average Epoch, Training, and Validation performance}
+\label{tab:metrics}
+\end{table}
 
 \subsection{Shared Hyperparameters}
 
@@ -212,7 +238,7 @@ The experiments below are ablation studies testing two hypotheses we had; we foc
 
 The first ablation study we were interested in was testing different loss functions due to the distribution of the source data. Since the label distribution is imbalanced (24\%, 37\%, 35\%, and 42\% buy labels), class-balanced focal loss could help to appropriately weight the dataset\cite{cb_focal}. We contrasted this with vanilla Cross Entropy Loss (CE).
 
-Both the RNN and Transformer perform better with the standard cross-entropy loss, but the LNN performs best with class-balanced focal loss. For the tested symbol, the Transformer had the best overall strategy test outcome. Both the RNN and the STT (containing an LSTM) do better with CE loss; an explanation for this could be that the models should not be weighting the imbalanced classes higher, as they might learn e.g. a buy probability that is too high for that particular situation. It is interesting that the LNN has almost the same strategy across the two losses, it is just shifted up a little bit. This indicates that the class balancing that the loss function applies is scaling the strategy's profit in a beneficial way.
+Both the RNN and Transformer perform better with the standard cross-entropy loss, but the LTCN performs best with class-balanced focal loss. For the tested symbol, the Transformer had the best overall strategy test outcome. Both the RNN and the STT (containing an LSTM) do better with CE loss; an explanation for this could be that the models should not be weighting the imbalanced classes higher, as they might learn e.g. a buy probability that is too high for that particular situation. It is interesting that the LTCN has almost the same strategy across the two losses, it is just shifted up a little bit. This indicates that the class balancing that the loss function applies is scaling the strategy's profit in a beneficial way.
 
 \subsection{Adding Additional Data with Pretraining}
 
@@ -226,7 +252,7 @@ Another idea we validated was that signal from a broader selection of market dat
     \label{fig:pretrainingsplits}
 \end{figure*}
 
-The RNN performs well across both the 75\% and 99\% splits. Not shown here is the 25\% split, where the RNN performs at the top of the group of models as well but lower from an absolute profitability standpoint. The RNN seems to learn well from pretraining data, especially when the target symbol is excluded. We tried experiments including the target symbol in pretraining data, and that significantly and adversely affected the RNN output. In those cases, this may be due to the RNN overfitting the target symbol training data and therefore losing accuracy on the test set. The Transformer and LNN do not seem to be as sensitive to this type of data, and this is perhaps due to the increased dimensionality of those models. Future research might focus on gathering more data to feed these other two model types to understand if that improves their pretraining outcomes as well.
+The RNN performs well across both the 75\% and 99\% splits. Not shown here is the 25\% split, where the RNN performs at the top of the group of models as well but lower from an absolute profitability standpoint. The RNN seems to learn well from pretraining data, especially when the target symbol is excluded. We tried experiments including the target symbol in pretraining data, and that significantly and adversely affected the RNN output. In those cases, this may be due to the RNN overfitting the target symbol training data and therefore losing accuracy on the test set. The Transformer and LTCN do not seem to be as sensitive to this type of data, and this is perhaps due to the increased dimensionality of those models. Future research might focus on gathering more data to feed these other two model types to understand if that improves their pretraining outcomes as well.
 
 \section{Conclusion}
 
