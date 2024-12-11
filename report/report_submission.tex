@@ -161,7 +161,29 @@ Here are the results we were able to achieve with best hyperparameter configurat
 
 <Table: rows are Models, columns are tickers as target\_symbol, values are profit from simulation>
 
-Although we were initially disappointed by the ~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence.  <should we more formally lay this out in a table? Class distribution per model on test data>
+\begin{table}
+\begin{center}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{|c|c|c|c|c|}
+\hline
+        \multicolumn{5}{|c|}{Accuracy, MCC} \\
+\hline
+        & ATNF & BIVI & CYCC & VTAK \\
+\hline
+        RNN & 0.378, .0837 & .511, .0768 & .543, .0782 & .276, .046 \\
+\hline
+        Transformer & .37, .0446 & .433, .0814 & .0433, .0578 & .323, -.0668 \\
+\hline
+        LNN & .52, 0 & .504, 0 & .535, 0 & .496, 0 \\
+\hline
+\end{tabular}%
+    }
+\end{center}
+    \caption{Data splits and time frames.}
+\label{tab:trainingsplits}
+\end{table}
+
+Although we were initially disappointed by the~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence.  <should we more formally lay this out in a table? Class distribution per model on test data>
 
 \subsection{Shared Hyperparameters}
 
@@ -191,6 +213,7 @@ Looking forward, we’d look at testing these models further to validate their g
 
 
 %-------------------------------------------------------------------------
+\clearpage
 \section{Work Division}
 
 \begin{table*}
@@ -208,6 +231,8 @@ Michael Walker & Implementation, Experimentation & Refactor code and configurati
 \caption{Contributions of team members.}
 \label{tab:contributions}
 \end{table*}
+
+The team felt that team members’ contributions met a minimum bar, and no group member was absent from the project work. Sakae wrote the majority of the framework code around the models - data engineering, feature engineering, experimentation, and trading simulation; Ashish and Michael contributed to refactors of that code for generalization and reusability. We each contributed our own model development and tuning, and all had ideas for experimentation/analysis.
 
 
 
