@@ -243,7 +243,25 @@ Table~\ref{tab:general_results} contains the results we were able to achieve wit
 \label{tab:general_results}
 \end{table}
 
-Although we were initially disappointed by the~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence.  <should we more formally lay this out in a table? Class distribution per model on test data>
+Although we were initially disappointed by the~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence. You can see in Table~\ref{tab:testclassdistribution} that classes aren't evenly distributed in the test set, requiring the model to accurately identify a smaller number of entry (buy) points in many of these symbols' cases.
+
+\begin{table}
+\begin{center}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|c|c|c|c|}
+\hline
+Symbol & Test Sell Pct & Test Hold Pct & Test Buy Pct \\ \hline
+ATNF           & 0.526                      & 0.073                         & 0.401                           \\ \hline
+BIVI   & 0.504                      & 0.095                         & 0.401                           \\ \hline
+CYCC           & 0.54                      & 0.102                         & 0.358                           \\ \hline
+VTAK           & 0.496                      & 0.124                         & 0.379                           \\ \hline
+\end{tabular}%
+}
+\end{center}
+\caption{Test Set Class Distribution by Symbol}
+\label{tab:testclassdistribution}
+\end{table}
+
 
 \begin{table}
 \begin{center}
