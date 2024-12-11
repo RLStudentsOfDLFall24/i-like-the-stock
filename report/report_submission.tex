@@ -146,7 +146,7 @@ We applied the  Liquid Time-constant Network (LTCN), Spatio-Temporal Transformer
 \hline
         Transformer & 3,275,971 \\
 \hline
-        LNN & 7,107 \\
+        LTCN & 7,107 \\
 \hline
 \end{tabular}
 \end{center}
@@ -192,7 +192,7 @@ The t2v module of STT was pre-trained using a simple task of having a date at ti
 
 \subsubsection{Liquid Time-Constant Network}
 
-\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LNN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
+\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LTCN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
 
         The main piece of the LTCN network is the use of ODE's, a system of equations, which depending on the implementation, could require an exponential number of discretized steps when simulated \cite{hasani_liquid_2020}. Instead, the paper that describes this model develops an ODE solver called a Fused Solver that fuses the explicit and implicit Euler methods. The Fused solver is defined by the following equation:
 \begin{equation}
@@ -200,7 +200,7 @@ The t2v module of STT was pre-trained using a simple task of having a date at ti
 \end{equation}
 
         Where $\textbf{I}(t)$ is the M-dimensional input, $\theta$ is the set of parameters, $\tau$
-        is the time constant (this is "the parameter characteriziong the speed and the coupling sensitivity of an ODE" \cite{hasani_liquid_2020} the inverse of which is the membrane capacitance of our neuron \cite{LNN_Tutorial}), $A$ is a bias vector, $x(t)$ is our hidden value (which could be cellularized for a more LSTM experience, or have an LSTM tacked on as was present in the official library implementation \cite{NCP_Github}), $\Delta t$ is the step size, generally defined as $1 / L$ where $L$ = the number of layers or iterations we will run for our ODE solver, and finally $f(.)$ is a non-linear function. In our implementation, which we derived in part from the official library \cite{NCP_Github} and the following step by step tutorial \cite{LNN_Tutorial}, we added a way to switch up the nonlinearity beyond just a sigmoid or tanh, although most other nonlinearities did not train as well as the sigmoid or tanh.
+        is the time constant (this is "the parameter characteriziong the speed and the coupling sensitivity of an ODE" \cite{hasani_liquid_2020} the inverse of which is the membrane capacitance of our neuron \cite{LTCN_Tutorial}), $A$ is a bias vector, $x(t)$ is our hidden value (which could be cellularized for a more LSTM experience, or have an LSTM tacked on as was present in the official library implementation \cite{NCP_Github}), $\Delta t$ is the step size, generally defined as $1 / L$ where $L$ = the number of layers or iterations we will run for our ODE solver, and finally $f(.)$ is a non-linear function. In our implementation, which we derived in part from the official library \cite{NCP_Github} and the following step by step tutorial \cite{LTCN_Tutorial}, we added a way to switch up the nonlinearity beyond just a sigmoid or tanh, although most other nonlinearities did not train as well as the sigmoid or tanh.
 
 \subsection{Evaluation Metrics}
 Evaluation of classification performance focuses on True Positive (TP), True Negative (TN), and their false counterparts False Positive (FP) and False Negative (FN). The following classification based metrics were used to evaluate model performance:
@@ -238,7 +238,7 @@ Table~\ref{tab:general_results} contains the results we were able to achieve wit
 \hline
         Transformer & .37, .0446 & .433, .0815 & .433, .0578 & .323, -.0668 \\
 \hline
-        LNN & .52, 0 & .504, 0 & .535, 0 & .496, 0 \\
+        LTCN & .52, 0 & .504, 0 & .535, 0 & .496, 0 \\
 \hline
 \end{tabular}%
     }
@@ -275,7 +275,7 @@ VTAK           & 0.496                      & 0.124                         & 0.
 \textbf{Model} & \textbf{Avg. Epoch Time} & \textbf{Avg. Train Time} & \textbf{Avg. Valid Time} \\ \hline
 RNN           & 0.1153                      & 0.1113                         & 0.2171                           \\ \hline
 Transformer   & 0.4647                      & 0.4574                         & 1.1957                           \\ \hline
-LNN           & 3.3816                      & 3.3173                         & 3.2862                           \\ \hline
+LTCN           & 3.3816                      & 3.3173                         & 3.2862                           \\ \hline
 \end{tabular}%
 }
 \end{center}
@@ -320,7 +320,7 @@ The RNN performs well across both the 75\% and 99\% splits. Not shown here is th
 
 \section{Conclusion}
 
-We conjectured that the Spatio-Temporal Transformer with its many parameters would have higher representational power and therefore be able to extract much higher returns from the market for the target symbols; we were proven wrong there. The model that came back with the most positive surprise was also the simplest - the RNN. The RNN, with the fewest number of parameters out of the three, excelled at predicting a subset of the symbols that we tested. It did not perform well on all of them, but given the single hyperparameter constraint this was not too much of a surprise. Out of the box and given a few interesting technical indicators extracted from the world of trading, these models are able to identify strong signal from the data and use that to become profitable, at least for the test sets defined in this set of experiments. The LNN showed a lot of promise in concept, but the theoretical strength did not translate to profitability results; the LNN performed slightly better than our baseline of buy-and-hold SPX in most cases but did not achieve outsized returns relative to the other two models.
+We conjectured that the Spatio-Temporal Transformer with its many parameters would have higher representational power and therefore be able to extract much higher returns from the market for the target symbols; we were proven wrong there. The model that came back with the most positive surprise was also the simplest - the RNN. The RNN, with the fewest number of parameters out of the three, excelled at predicting a subset of the symbols that we tested. It did not perform well on all of them, but given the single hyperparameter constraint this was not too much of a surprise. Out of the box and given a few interesting technical indicators extracted from the world of trading, these models are able to identify strong signal from the data and use that to become profitable, at least for the test sets defined in this set of experiments. The LTCN showed a lot of promise in concept, but the theoretical strength did not translate to profitability results; the LTCN performed slightly better than our baseline of buy-and-hold SPX in most cases but did not achieve outsized returns relative to the other two models.
 
 Looking forward, we’d look at testing these models further to validate their generalizability across industries, instruments, etc. - commodities, futures, and cryptocurrency are all interesting areas with their own opportunities and challenges. In terms of engineering work, additional intelligence can be added both when creating the labels for the dataset and when running the simulation to improve profitability of the strategy. Execution control, e.g. selling when at a 10\% loss, could probably also improve profitability but outside of the Deep Learning walls of this experiment.
 
@@ -340,7 +340,7 @@ Student Name & Contributed Aspects & Details \\
 \hline\hline
 Sakae Watanabe & Implementation, Experimentation & Data \& feature engineering; training base code; STT model build/tune; trading simulation\\
 Ashish Narasimham & Implementation, Paper Writing & Dataset sourcing; training code generalization; pre-training feature; RNN model build/tune; paper writing \\
-Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LNN model build/tune \\
+Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LTCN model build/tune \\
 \hline
 \end{tabular}
 \caption{Contributions of team members.}
