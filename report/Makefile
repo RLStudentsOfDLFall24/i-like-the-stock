@@ -1,5 +1,5 @@
 all:
-	pdflatex egpaper_for_review.tex
+	pdflatex report_submission.tex
 
 biblio:
 	biber egbib
