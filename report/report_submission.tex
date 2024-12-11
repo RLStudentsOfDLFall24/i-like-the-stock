@@ -157,9 +157,7 @@ $Acc = \frac{TP + TN}{TP + TN + FP + FN}$
 
 \section{Experiments and Results}
 
-Here are the results we were able to achieve with best hyperparameter configuration per model class, with the additional constraint that we are using the same set of hyperparameters for all ticker symbols to promote generalization across market data. This was set up as a 3-class classification task - sell, hold, or buy.
-
-<Table: rows are Models, columns are tickers as target\_symbol, values are profit from simulation>
+\ref{tab:general_results) contains the results we were able to achieve with best hyperparameter configuration per model class, with the additional constraint that we are using the same set of hyperparameters for all ticker symbols to promote generalization across market data. This was set up as a 3-class classification task - sell, hold, or buy.
 
 \begin{table}
 \begin{center}
@@ -179,8 +177,8 @@ Here are the results we were able to achieve with best hyperparameter configurat
 \end{tabular}%
     }
 \end{center}
-    \caption{Data splits and time frames.}
-\label{tab:trainingsplits}
+\caption{Data splits and time frames.}
+\label{tab:general_results}
 \end{table}
 
 Although we were initially disappointed by the~50\% test accuracy across all three models, they generally ended with gains across the 6-month test window when put into simulation. This indicates that although they were noisy in their inferences, the training data enabled them to identify the key inflection points of the chart as they were happening. Some models learned to be very selective when buying and liberal when selling, in effect identifying entry points with very high confidence of a positive movement and then selling after losing some of that confidence.  <should we more formally lay this out in a table? Class distribution per model on test data>
