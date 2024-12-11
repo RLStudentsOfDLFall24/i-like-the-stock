@@ -69,7 +69,7 @@ If successful, beyond the immediate profits generated on the public trading mark
 
 \subsection{Data}
 
-We gathered data from Yahoo! Finance’s daily stock data APIs to obtain historical pricing data for 5 different symbols (e.g. https://finance.yahoo.com/quote/ATNF/history/ \cite{we should just cite yfinance or yahoo website here imo}). A simple ETL pipeline was used to transform the data into usable input features. Four of the stock tickers were selected based on high volatility (more opportunity to outsmart the market if the stock goes further up and down), participation in the Healthcare space (interesting area that could be the next frontier for innovation), and small market cap (hopefully not as many competing algorithmic market participants). The final symbol SPX was selected to capture a broader signal to promote learning. Raw and processed data are stored in the GitHub repository.
+We gathered data from Yahoo! Finance’s daily stock data APIs to obtain historical pricing data for 5 different symbols\cite{yahoo_finance_api,yfinance}. A simple ETL pipeline was used to transform the data into usable input features. Four of the stock tickers were selected based on high volatility (more opportunity to outsmart the market if the stock goes further up and down), participation in the Healthcare space (interesting area that could be the next frontier for innovation), and small market cap (hopefully not as many competing algorithmic market participants). The final symbol SPX was selected to capture a broader signal to promote learning. Raw and processed data are stored in the GitHub repository.
 
 \subsection{Dataset Properties}
 
@@ -111,22 +111,21 @@ We labeled each row with one of three labels: buy, sell, or hold. The labels wer
 
     \subsection{Target Examples}
     Training examples were created by partitioning observations into windows of fixed-length $\tau$, where each window contained features $X_t = x_{t - \tau},..., x_t$. The target label for the window was computed based on next day returns.
-<Some formal equation related to how target labels are created - can do an equation with cases here.> %y_t = \case based equation
+% TODO <Some formal equation related to how target labels are created - can do an equation with cases here.> %y_t = \case based equation
 
     \subsection{Features}
-A variety of technical indicators are commonly used in the enrichment of financial time-series data \cite{insert some refs here}. The following features were added to the training data:
-
+A variety of technical indicators are commonly used in the enrichment of financial time-series data\cite{zou_survey,stock_charts}. The following features were added to the training data: 
     \begin{itemize}
         \item{Simple Moving Average (SMA): 10, 20, and 30 day}
         \item{Exponential Moving Average (EMA): 10, 20, and 30 day}
         \item{Relative Volume: 10, 20, and 30 day}
         \item{\%B: Computes the relative position of the current price within the 95\% confidence interval bands of SMA20}
         \item{Moving Average Convergence Divergence (MACD): An oscillation indicator using the 9, 12, and 26 day EMAs}
-        \item{Relative Strength Index (RSI):}
+        \item{Relative Strength Index (RSI): An oscillation indicator grounded in the ratio of average gains to losses over a 14 day period. $RSI = 100 - \frac{100}{1 + RS}$, where $RS = \frac{AvgGain}{AvgLoss}$}
         \item{Momentum / Rate of Change: 10 day momentum. $Moment_t = price_t / price_{t-10} - 1$}
     \end{itemize}
 
-Human traders that engage with markets on this timescale often use technical indicators such as these to make buy/sell decisions on their portfolio. Future areas of exploration would include combining these short-term signals with longer-term signals like metrics from the company’s balance sheet, sentiment analysis from earnings press releases, and social signals from the broader market participant pool.
+Human traders that engage with markets on this timescale often use technical indicators such as these to make buy/sell decisions on their portfolio\cite{stock_charts}. Future areas of exploration would include combining these short-term signals with longer-term signals like metrics from the company’s balance sheet, sentiment analysis from earnings press releases, and social signals from the broader market participant pool.
 
     \section{Approach}
 We took existing approaches in other industries and reapplied them to this new-to-us domain, taking a no-frills approach to data engineering, model training, and trading simulation in order to gain a deep (no pun intended) understanding and first-hand experience of the challenges in the space. We decided to structure the task as classification of next day movement - up, down or flat - rather than regression. Simply - we do not care by how much a stock will go up, we only care that it goes up so that we can buy it and subsequently sell when we predict it will reverse direction.
@@ -135,11 +134,12 @@ We applied the Liquid Neural Network (LNN), Spatio-Temporal Transformer (STT), a
 
     \begin{enumerate}
         \item{The Identity RNN (IRNN) is the simplest of our three models, leveraging the basic Recurrent Neural Network architecture. The name is such because this variant simplifies the initialization to an identity matrix (ones on the diagonal, zeros elsewhere) for the weights and 0’s for the biases to encourage the RNN to behave more like an LSTM. This works because when initializing to the identity matrix, the architecture tends toward an LSTM with the forget gate set to not decay the cell state at all. This is not equivalent to an LSTM but can stand in for one with comparative performance and a lot less parameters (4,000 learned parameters as tested), making for faster training cycles and lower inference latency.}
-        \item{The Spatiotemporal Transformer (STT) leverages time2vec temporal encodings, a transformer-encoder stack, an LSTM decoder, and a fully connected classification module - 3.28M parameters as tested. The positional encoding utilized in the original transformer architecture only considers relative position within a context window. Temporal encodings extend upon this concept, allowing encodings to have relative importance across different context windows.
+        \item{The Spatiotemporal Transformer (STT) leverages time2vec temporal encodings, a transformer-encoder stack, an LSTM decoder, and a fully connected classification module - 3.28M parameters as tested. The positional encoding utilized in the original transformer architecture only considers relative position within a context window. Temporal encodings extend upon this concept, allowing encodings to have relative importance across different context windows\cite{STT_Paper,time2vec,STLAT_sota,vaswani_attention_2023,BERT}.
 
 STT combines temporal encoding with expanded multivariate time series data within the sequence. Financial time-series data consist of observations $x_t \in \mathbb{R}^d$, where $x_t$ represents the feature vector at time $t$. Rather than project $x_t$ to an arbitrary dimension, STT concatenates the temporal encoding $t2v \in \mathbb{R}^k$ with $x^i_t$, the $i$-th feature at time $t$ to produce intermediate embeddings. The expansion of the features combined with the concatenation of $t2v$ allows for more complex interactions across sequences and variables.
 
-            The intermediate embedding $E_t \in \mathbb{R}^{d \times (k + 1)}$ is then passed through a dense embedding layer that projects to $\mathbb{R^{d_{model}}}$ that the transformer-encoder accepts.
+            The intermediate embedding $E_t \in \mathbb{R}^{d \times (k + 1)}$ is then passed through a dense embedding layer that projects to $\mathbb{R}^{d_{model}}$ that the transformer-encoder accepts.
+
 Pretrained t2v Embedding
 The t2v module of STT was pre-trained using a simple task of having a date at time $t$ predict the date at $t+1$ for the date range [1900-01-01, 2100-01-01]. This pre-training step provided additional stability during the primary model training and evaluation process. A more complex pre-training task may provide increased benefit, but was outside the scope of this experiment.
             Note: will help pass over once we get this in tex.}
@@ -150,9 +150,16 @@ The t2v module of STT was pre-trained using a simple task of having a date at ti
 \subsection{Evaluation Metrics}
 Evaluation of classification performance focuses on True Positive (TP), True Negative (TN), and their false counterparts False Positive (FP) and False Negative (FN). The following classification based metrics were used to evaluate model performance:
 Accuracy: The percentage of correctly predicted labels
-$Acc = \frac{TP + TN}{TP + TN + FP + FN}$
-%Matthews Correlation Coefficient (MCC): The MCC is commonly used when evaluating trade classifications for financial time-series data \cite{# todo insert refs survey, STT, STLAT paper}. MCC is bound to the range [-1, 1], with +/- 1 indicating positively\/negatively correlated predictions respectively. MCC provides more robustness to class imbalance when compared to ACC.
-%$MCC = \frac{TP \cdot TN - FP \cdot FN}{\root{(TP + FP)(TP + FN)(TN + FP)(TN + FN)}}$
+ 
+\begin{equation} \label{eq:accuracy}
+    Acc = \frac{TP + TN}{TP + TN + FP + FN}
+\end{equation}
+
+Matthews Correlation Coefficient (MCC): The MCC is commonly used when evaluating trade classifications for financial time-series data \cite{STT_Paper,STLAT_sota,zou_survey}. MCC is bound to the range [-1, 1], with +/- 1 indicating positively\/negatively correlated predictions respectively. MCC provides more robustness to class imbalance when compared to ACC.
+
+\begin{equation} \label{eq:mcc}
+    MCC = \frac{TP \times TN - FP \times FN}{TP + TN + FP + FN}
+\end{equation}
 
 
 \section{Experiments and Results}
@@ -189,11 +196,18 @@ We found that each stock will be predicted optimally by a specific set of hyperp
 One other note - the transformer leverages about 1000x the parameter count as the other two models do. This begs the question, is it worth it? The results paint a mixed picture, which is not a clear signal towards the Transformer-based model. Under the construct of using a single hyperparameter set, we don’t have an answer. However future research could investigate individually tuning per symbol, perhaps allowing a best algorithm to emerge there.
 The experiments below are ablation studies testing two hypotheses we had; we focused on the \$BIVI symbol and stock ticker for these experiments.
 
+
+\begin{figure*}[ht!]
+    \centering
+    \includegraphics[width=0.48\textwidth]{../figures/simulation_results_all_models_bivi_config_loss_ce.yml.png}
+    \includegraphics[width=0.48\textwidth]{../figures/simulation_results_all_models_bivi_config_loss_cbfocal.yml.png} 
+    \caption{Comparison of results using both CE and CB loss functions for the symbol \$BIVI. \emph{Left}: Simulation results comparison for CE. \emph{Right}: Simulation results using class balanced focal loss (CB).}
+    \label{fig:ceVsCbLoss}
+\end{figure*}
+
 \subsection{Optimizers and Loss Functions}
 
-The first ablation study we were interested in was testing different loss functions due to the distribution of the source data. Since the label distribution is imbalanced <insert label distribution per ticker summary>, class-balanced focal loss could help to appropriately weight the dataset. We contrasted this with vanilla Cross Entropy Loss.
-
-%Side-by-side images to be inserted here
+The first ablation study we were interested in was testing different loss functions due to the distribution of the source data. Since the label distribution is imbalanced <insert label distribution per ticker summary>, class-balanced focal loss could help to appropriately weight the dataset\cite{cb_focal}. We contrasted this with vanilla Cross Entropy Loss (CE).
 
 Both the RNN and Transformer perform better with the standard cross-entropy loss, but the LNN performs best with class-balanced focal loss. For the tested symbol, the Transformer had the best overall strategy test outcome.
 
@@ -233,5 +247,8 @@ Michael Walker & Implementation, Experimentation & Refactor code and configurati
 The team felt that team members’ contributions met a minimum bar, and no group member was absent from the project work. Sakae wrote the majority of the framework code around the models - data engineering, feature engineering, experimentation, and trading simulation; Ashish and Michael contributed to refactors of that code for generalization and reusability. We each contributed our own model development and tuning, and all had ideas for experimentation/analysis.
 
 
+%%%%%%%%% REFERENCES
+\bibliographystyle{unsrt}
+\bibliography{egbib}
 
 \end{document}
