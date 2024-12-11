@@ -306,7 +306,7 @@ Both the RNN and Transformer perform better with the standard cross-entropy loss
 
 \subsection{Adding Additional Data with Pretraining}
 
-Another idea we validated was that signal from a broader selection of market data will benefit learning for the target dataset and ticker. We tested including other tickers from our dataset in a pre-training phase. We included all tickers except the target symbol in the pre-training phase, running the ablation study by varying the percentage of epochs spent training on the all-but-target-symbol dataset versus fine-tuning on the target symbol. For fine-tuning, we introduced another parameter to step down the learning rate and held that constant per model across this study, using the best value found per model.  Results are presented in Figure~\ref{fig:pretrainingsplits}.
+Another idea we validated was that signal from a broader selection of market data will benefit learning for the target dataset and ticker. We tested including other tickers from our dataset in a pre-training phase. We included all tickers (including the target symbol) in the pre-training phase, running the ablation study by varying the percentage of epochs spent training on the full dataset versus fine-tuning on the target symbol dataset only. For fine-tuning, we introduced another parameter to step down the learning rate and held that constant per model across this study, using the best value found per model.  Results are presented in Figure~\ref{fig:pretrainingsplits}.
 
 \begin{figure*}[ht!]
     \centering
@@ -316,7 +316,9 @@ Another idea we validated was that signal from a broader selection of market dat
     \label{fig:pretrainingsplits}
 \end{figure*}
 
-The RNN performs well across both the 75\% and 99\% splits. Not shown here is the 25\% split, where the RNN performs at the top of the group of models as well but lower from an absolute profitability standpoint. The RNN seems to learn well from pretraining data, especially when the target symbol is excluded. We tried experiments including the target symbol in pretraining data, and that significantly and adversely affected the RNN output. In those cases, this may be due to the RNN overfitting the target symbol training data and therefore losing accuracy on the test set. The Transformer and LTCN do not seem to be as sensitive to this type of data, and this is perhaps due to the increased dimensionality of those models. Future research might focus on gathering more data to feed these other two model types to understand if that improves their pretraining outcomes as well.
+The RNN did not perform well across both the 75\% and 99\% splits. Interestingly however and to investigate why this might be, we ran an experiment excluding the target symbol in pretraining data (not shown in visualizations here), and that significantly and positively affected the RNN output; the RNN in these trials moved to the highest-performing spot out of the three models. In those cases, this may be due to the RNN not overfitting the target symbol training data and therefore gaining accuracy on the test set through intelligent generalization. The test chart for the RNN in that not-shown experiment was almost a mirror image of the downward-direction symbol chart, indicating that even a few presentations (epochs) of the fine-tune data is enough to update the (relatively few) parameters and generalize well. 
+
+The Transformer interestingly is sensitive to this change in the opposite way; it prefers to see the target symbol in the pretraining phase for best results. This could indicate that it is not generalizing well and is overfitting the target symbol's training data. The LTCN does not seem to be as sensitive to this type of data, proving consistent across the ablation range. These results indicate that future research through gathering a larger pretraining dataset would help to distinguish why these models may be behaving this way - pretraining may have more of an effect on both of these models with a larger dataset. This would be true Transfer Learning.
 
 \section{Conclusion}
 
@@ -334,15 +336,19 @@ Looking forward, we’d look at testing these models further to validate their g
 \section{Work Division}
 
 \begin{table}
+    \begin{center}
 \begin{tabular}{|l|c|p{8cm}|}
 \hline
 Student Name & Contributed Aspects & Details \\
-\hline\hline
+\hline
 Sakae Watanabe & Implementation, Experimentation & Data \& feature engineering; training base code; STT model build/tune; trading simulation\\
+\hline
 Ashish Narasimham & Implementation, Paper Writing & Dataset sourcing; training code generalization; pre-training feature; RNN model build/tune; paper writing \\
+\hline
 Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LTCN model build/tune \\
 \hline
 \end{tabular}
+    \end{center}
 \caption{Contributions of team members.}
 \label{tab:contributions}
 \end{table}
