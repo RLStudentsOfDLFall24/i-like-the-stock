@@ -136,13 +136,52 @@ We applied the  Liquid Time-constant Network (LTCN), Spatio-Temporal Transformer
 
     \subsection{Model Details}
 
+\begin{table}
+\begin{center}
+    \begin{tabular}{|c|c|}
+\hline
+        Model & Parameter Count \\
+\hline
+        RNN & 4,003 \\
+\hline
+        Transformer & 3,275,971 \\
+\hline
+        LNN & 7,107 \\
+\hline
+\end{tabular}
+\end{center}
+    \caption{Parameter counts for each of the models used}
+\label{tab:parametercounts}
+\end{table}
+
     \subsubsection{Identity RNN}
 
-    The \textbf{Identity RNN (IRNN) \cite{irnn_initialize}} is the simplest of our three models, leveraging the basic Recurrent Neural Network architecture. The name is such because this variant simplifies the initialization to an identity matrix (ones on the diagonal, zeros elsewhere) for the weights and 0’s for the biases to encourage the RNN to behave more like an LSTM. This works because when initializing to the identity matrix, the architecture tends toward an LSTM with the forget gate set to not decay the cell state at all. This is not equivalent to an LSTM but can stand in for one with comparative performance and a lot less parameters (4,000 learned parameters as tested), making for faster training cycles and lower inference latency.
+    The \textbf{Identity RNN (IRNN) \cite{irnn_initialize}} is the simplest of our three models, leveraging the basic Recurrent Neural Network architecture. The basic Recurrent Neural Network has three weight matrices, $U$, $W$, and $V$, and two inputs, $H$ and $X$. Outputs are computed by applying the following equations \cite{deep_learning_book}:
+
+    \begin{align}
+        a^{(t)} =& b + W h^{(t-1)} + U x^{(t)} \\
+        h^{(t)} =& tanh(a^{(t)}) \\
+        o^{(t)} =& c + V h^{(t)} \\
+        \hat{y}^{(t)} =& softmax(o^{(t)})
+    \end{align}
+
+    The name IRNN is such because this variant simplifies the initialization to an identity matrix for the weights: 
+
+    \begin{equation}
+        \renewcommand\arraystretch{2}
+        I = \begin{bmatrix}
+            1 & 0 & \cdots & 0 \\
+            0 & 1 & \cdots & 0 \\
+            \vdots & \vdots & \ddots & \vdots \\
+            0 & 0 & \cdots & 1 \\
+        \end{bmatrix}
+    \end{equation}
+
+    It additionally assigns 0’s for the biases, $b$ and $c$ in the above equations. These initializations encourage the RNN to behave more like an LSTM. This works because when initializing to the identity matrix, the architecture tends toward an LSTM with the forget gate set to not decay the cell state at all. This is not equivalent to an LSTM but can stand in for one with comparative performance and a lot less parameters, making for faster training cycles and lower inference latency. The identity matrix can be scaled by a constant before assignment to both the input weight matrix, $U = \beta I$, and the hidden weight matrix, $W= \beta I$, to interpolate between no memory and full memory.
 
     \subsubsection{Spatiotemporal Transformer}
 
-    The \textbf{Spatiotemporal Transformer (STT)} leverages time2vec temporal encodings, a transformer-encoder stack, an LSTM decoder, and a fully connected classification module - 3.28M parameters as tested. The positional encoding utilized in the original transformer architecture only considers relative position within a context window. Temporal encodings extend upon this concept, allowing encodings to have relative importance across different context windows\cite{STT_Paper,time2vec,STLAT_sota,vaswani_attention_2023,BERT}.
+    The \textbf{Spatiotemporal Transformer (STT)} leverages time2vec temporal encodings, a transformer-encoder stack, an LSTM decoder, and a fully connected classification module. The positional encoding utilized in the original transformer architecture only considers relative position within a context window. Temporal encodings extend upon this concept, allowing encodings to have relative importance across different context windows\cite{STT_Paper,time2vec,STLAT_sota,vaswani_attention_2023,BERT}.
 
 STT combines temporal encoding with expanded multivariate time series data within the sequence. Financial time-series data consist of observations $x_t \in \mathbb{R}^d$, where $x_t$ represents the feature vector at time $t$. Rather than project $x_t$ to an arbitrary dimension, STT concatenates the temporal encoding $t2v \in \mathbb{R}^k$ with $x^i_t$, the $i$-th feature at time $t$ to produce intermediate embeddings. The expansion of the features combined with the concatenation of $t2v$ allows for more complex interactions across sequences and variables.
 
@@ -153,7 +192,7 @@ The t2v module of STT was pre-trained using a simple task of having a date at ti
 
 \subsubsection{Liquid Time-Constant Network}
 
-\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LNN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins - parameter count was 7,107 as tested - and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
+\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LNN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
 
         The main piece of the LTCN network is the use of ODE's, a system of equations, which depending on the implementation, could require an exponential number of discretized steps when simulated \cite{hasani_liquid_2020}. Instead, the paper that describes this model develops an ODE solver called a Fused Solver that fuses the explicit and implicit Euler methods. The Fused solver is defined by the following equation:
 \begin{equation}
@@ -229,10 +268,13 @@ LNN           & 3.3816                      & 3.3173                         & 3
 \subsection{Shared Hyperparameters}
 
 We found that each stock will be predicted optimally by a specific set of hyperparameters; it may not be the case that a single set of hyperparameters should work well across the board, given the nuances of each symbol’s movements. However that single configuration can give a great place to start from when incorporating a new symbol into one’s trading portfolio.
-One other note - the transformer leverages about 1000x the parameter count as the other two models do. This begs the question, is it worth it? The results paint a mixed picture, which is not a clear signal towards the Transformer-based model. Under the construct of using a single hyperparameter set, we don’t have an answer. However future research could investigate individually tuning per symbol, perhaps allowing a best algorithm to emerge there.
+One other note - the transformer leverages about 1000x the parameter count (see Table \ref{tab:parametercounts}) as the other two models do. This begs the question, is it worth it? The results paint a mixed picture, which is not a clear signal towards the Transformer-based model. Under the construct of using a single hyperparameter set, we don’t have an answer. However future research could investigate individually tuning per symbol, perhaps allowing a best algorithm to emerge there.
 
 The experiments below are ablation studies testing two hypotheses we had; we focused on the \$BIVI symbol and stock ticker for these experiments.
 
+\subsection{Optimizers and Loss Functions}
+
+The first ablation study we were interested in was testing different loss functions due to the distribution of the source data. Since the label distribution is imbalanced (24\%, 37\%, 35\%, and 42\% buy labels), class-balanced focal loss could help to appropriately weight the dataset\cite{cb_focal}. We contrasted this with vanilla Cross Entropy Loss (CE). Results are presented in Figure~\ref{fig:ceVsCbLoss}.
 
 \begin{figure*}[ht!]
     \centering
@@ -242,15 +284,11 @@ The experiments below are ablation studies testing two hypotheses we had; we foc
     \label{fig:ceVsCbLoss}
 \end{figure*}
 
-\subsection{Optimizers and Loss Functions}
-
-The first ablation study we were interested in was testing different loss functions due to the distribution of the source data. Since the label distribution is imbalanced (24\%, 37\%, 35\%, and 42\% buy labels), class-balanced focal loss could help to appropriately weight the dataset\cite{cb_focal}. We contrasted this with vanilla Cross Entropy Loss (CE).
-
 Both the RNN and Transformer perform better with the standard cross-entropy loss, but the LTCN performs best with class-balanced focal loss. For the tested symbol, the Transformer had the best overall strategy test outcome. Both the RNN and the STT (containing an LSTM) do better with CE loss; an explanation for this could be that the models should not be weighting the imbalanced classes higher, as they might learn e.g. a buy probability that is too high for that particular situation. It is interesting that the LTCN has almost the same strategy across the two losses, it is just shifted up a little bit. This indicates that the class balancing that the loss function applies is scaling the strategy's profit in a beneficial way.
 
 \subsection{Adding Additional Data with Pretraining}
 
-Another idea we validated was that signal from a broader selection of market data will benefit learning for the target dataset and ticker. We tested including other tickers from our dataset in a pre-training phase. We included all tickers except the target symbol in the pre-training phase, running the ablation study by varying the percentage of epochs spent training on the all-but-target-symbol dataset versus fine-tuning on the target symbol. For fine-tuning, we introduced another parameter to step down the learning rate and held that constant per model across this study, using the best value found per model.  Results are presented below.
+Another idea we validated was that signal from a broader selection of market data will benefit learning for the target dataset and ticker. We tested including other tickers from our dataset in a pre-training phase. We included all tickers except the target symbol in the pre-training phase, running the ablation study by varying the percentage of epochs spent training on the all-but-target-symbol dataset versus fine-tuning on the target symbol. For fine-tuning, we introduced another parameter to step down the learning rate and held that constant per model across this study, using the best value found per model.  Results are presented in Figure~\ref{fig:pretrainingsplits}.
 
 \begin{figure*}[ht!]
     \centering
