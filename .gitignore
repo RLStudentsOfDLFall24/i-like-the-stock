@@ -309,7 +309,6 @@ __pycache__
 *_test.ipynb
 
 *.vim
-figures/*
 
 test.ipynb
 test_*.yml

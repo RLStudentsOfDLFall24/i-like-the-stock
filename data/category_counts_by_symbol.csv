@@ -1,0 +1,6 @@
+Symbol,Train Sell,Train Hold,Train Buy,Valid Sell,Valid Hold,Valid Buy,Test Sell,Test Hold,Test Buy,Total Sell,Total Hold,Total Buy
+atnf,390,64,300,65,12,57,72,10,55,527,86,412
+bivi,365,68,321,74,5,55,69,13,55,508,86,431
+cycc,364,85,305,69,15,50,74,14,49,507,114,404
+vtak,376,106,272,52,33,49,68,17,52,496,156,373
+spx,207,314,233,25,67,42,26,71,40,258,452,315
