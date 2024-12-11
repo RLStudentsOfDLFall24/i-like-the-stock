@@ -6,13 +6,15 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
+%\usepackage[backend=biber]{biblatex}
+%\addbibresource{report\_submission.bib}
 
 % Include other packages here, before hyperref.
 
 % If you comment hyperref and then uncomment it, you should delete
 % egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
 % run, let it finish, and you should be clear).
-\usepackage[pagebackref=true,breaklinks=true,letterpaper=true,colorlinks,bookmarks=false]{hyperref}
+\usepackage[breaklinks=true,colorlinks,bookmarks=false]{hyperref}
 
 \cvprfinalcopy % *** Uncomment this line for the final submission
 
@@ -164,7 +166,7 @@ Matthews Correlation Coefficient (MCC): The MCC is commonly used when evaluating
 
 \section{Experiments and Results}
 
-\ref{tab:general_results) contains the results we were able to achieve with best hyperparameter configuration per model class, with the additional constraint that we are using the same set of hyperparameters for all ticker symbols to promote generalization across market data. This was set up as a 3-class classification task - sell, hold, or buy.
+Table~\ref{tab:general_results} contains the results we were able to achieve with best hyperparameter configuration per model class, with the additional constraint that we are using the same set of hyperparameters for all ticker symbols to promote generalization across market data. This was set up as a 3-class classification task - sell, hold, or buy.
 
 \begin{table}
 \begin{center}
@@ -229,7 +231,6 @@ Looking forward, we’d look at testing these models further to validate their g
 \section{Work Division}
 
 \begin{table*}
-\begin{center}
 \begin{tabular}{|l|c|p{8cm}|}
 \hline
 Student Name & Contributed Aspects & Details \\
@@ -239,7 +240,6 @@ Ashish Narasimham & Implementation, Paper Writing & Dataset sourcing; training c
 Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LNN model build/tune \\
 \hline
 \end{tabular}
-\end{center}
 \caption{Contributions of team members.}
 \label{tab:contributions}
 \end{table*}
