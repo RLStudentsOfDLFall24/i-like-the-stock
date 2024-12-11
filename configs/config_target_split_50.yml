@@ -6,7 +6,7 @@ run_models:
 training_params:
   train_symbols:
   - "atnf"
-  - "bivi"
+  #- "bivi"
   - "cycc"
   - "vtak"
   - "spx"
