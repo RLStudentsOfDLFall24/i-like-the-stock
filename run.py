@@ -21,6 +21,12 @@ MODEL_TYPES = {
     'lnn':LNN, 
     'lnn_cfc': CfC_LNN, 
 }
+
+MODEL_NAMES = {
+    'rnn': 'IRNN',
+    'transformer': 'STT',
+    'lnn': 'LTCN',
+}
 Model = namedtuple('Model', ['key', 'classname', 'params', 'trainer_params', 'device'])
 
 
@@ -106,6 +112,9 @@ def run(config_file: str = None):
             batch_size = m.trainer_params['batch_size']
             split = m.trainer_params['global_to_target_split']
             print('Starting training for ', m)
+
+            model_type = MODEL_NAMES[m.key]
+
             (model, _, _, _, avg_test_loss, test_acc, f1, pred_dist, mcc, simulate, times, test_times), \
                 (pre_avg_test_loss, pre_times, pre_test_times) = run_experiment(
                 model=m.classname,
@@ -118,9 +127,9 @@ def run(config_file: str = None):
                 trainer_params=m.trainer_params,
                 seed=1984,
                 split=split,
-                key=m.key)
+                key=model_type)
 
-            perf_results['Model'].append(m.key)
+            perf_results['Model'].append(model_type)
             perf_results['Param Count'].append(get_param_count(model))
             perf_results['Avg Test Loss'].append(avg_test_loss)
             perf_results['Pretrain Avg Test Loss'].append(pre_avg_test_loss)
