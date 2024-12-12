@@ -51,7 +51,7 @@ Gatech\\
 
 %%%%%%%%% ABSTRACT
 \begin{abstract}
-    We apply state-of-the-art Deep Learning approaches to the problem space of short-term trading, using daily market open/close/volume data to create time-series batches of sequences within the dataset. We take 3 different approaches: Spatio-Temporal Transformer (STT), Liquid Time-constant Network (LTCN), and Identity Recurrent Neural Network (IRNN); and attempt to extract signal from high-volatility public company stock movements in the healthcare space. Our results indicate that further investigation is required to create nuanced models that balance buying, selling, and holding inferences to achieve lower training loss. However we have been able to create a profitable trading strategy even with sub-optimal trading accuracy.
+    We apply state-of-the-art Deep Learning approaches to the problem space of short-term trading, using daily market open/close/volume data to create time-series batches of sequences within the dataset. We take 3 different approaches: Spatio-Temporal Transformer (STT), Liquid Time-constant Network (LTCN), and Identity Recurrent Neural Network (IRNN); and attempt to extract signal from high-volatility public company stock movements in the healthcare space. Our results indicate that further investigation is required to create nuanced models that balance buying, selling, and holding inferences to achieve lower training loss. However, we have been able to create a profitable trading strategy even with suboptimal trading accuracy.
 
 \end{abstract}
 
@@ -60,10 +60,15 @@ Gatech\\
 
 \subsection{Background} 
 
-Simply, we attempted to generate profit on stock market historical data using deep learning methods. To reduce the scope, we focused on a basket of 5 stocks in the healthcare space that are publicly traded; we chose to focus on smaller companies, conjecturing that these are less influenced by algorithmic trading than the larger companies that have more visibility and are traded with higher volumes of shares exchanging hands. 
-There are many large firms that have financial interests in optimizing profit algorithmically, so academic sharing of best practices isn’t the standard for the industry. There are a few papers published that survey modern techniques, but largely we sourced ideas from other industries and reapplied the tools to a new context while considering what might work well for time-series datasets.
-Modern approaches generally have limitations across several dimensions. 1) They are better at classification than they are at regression. 2) They can predict near-term movements better than longer time horizons. 3) A myriad of data sources is required to accurately model stock movements - everything from political events and weather anomalies to X (formerly Twitter) posts and key individuals’ thoughts can provide strong signal for stock movements. 4) They need significant amounts of data to accurately distill patterns into weights.
-If successful, beyond the immediate profits generated on the public trading markets this exploration would inform time-series deep learning approaches more broadly across industries. Real-time human vitals could be analyzed for anomalous adverse health events; automobile telemetry could be analyzed for part failure; and factory workers could be kept safe from industrial machinery malfunctions.
+"Everybody needs money, that's why they call it money!" - Mickey Bergman \textit{Heist} 2001
+
+Algorithmic trading can be defined as a method of investment analysis that seeks to use financial data with computer technology to find short-term abnormalities in market prices and exploit them to make a profit \cite{wang2021survey}. Attempts to use algorithms to monitor and exploit these systems have existed for many years and many attempts have been made to create highly profitable algorithms that can remove the human element from the trading process. There are many large firms that have financial interests in optimizing profit algorithmically, though, they tend not to share their techniques. This results in very few papers published surveying modern techniques with the state of the art being an adversarial model that hit around a 64\% accuracy on their chosen stocks \cite{STLAT_sota}. For this paper, we intend to test out a set of modern deep learning methods in an attempt to generate a profin on stock market historical data.
+
+\subsection{Rationale}
+
+For our approach, we started by choosing to focus on a small collection of 5 stocks from publicly traded healthcare companies. We chose to focus on smaller companies, conjecturing that these are less influenced by algorithmic trading than the larger companies that have more visibility and are traded with higher volumes of shares exchanging hands. Due to the aforementioned reluctance of large trading companies to spill their algorithmic secrets, and the limited number of academic research in this space, we sourced ideas from other industries and reapplied the tools to a new context while considering what might work well for time-series datasets.
+Modern approaches generally have limitations across several dimensions. 1) They are better at classification than they are at regression. 2) They can predict near-term movements better than longer time horizons. 3) A myriad of data sources is required to accurately model stock movements - everything from political events and weather anomalies to X (formerly Twitter) posts and key individuals’ thoughts can provide strong signal for stock movements. 4) They need significant amounts of data to accurately distill the patterns into weights.
+If successful, beyond the immediate profits generated on the public trading markets, this exploration would inform time-series deep learning approaches more broadly across industries. Real-time human vitals could be analyzed for anomalous adverse health events; automobile telemetry could be analyzed for part failure; and factory workers could be kept safe from industrial machinery malfunctions.
 
 
 %-------------------------------------------------------------------------
@@ -192,15 +197,15 @@ The t2v module of STT was pre-trained using a simple task of having a date at ti
 
 \subsubsection{Liquid Time-Constant Network}
 
-\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. Also known as a Liquid Neural Network (LTCN), it uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}
+\textbf{Liquid Time-Constant Network (LTCN)} \cite{hasani_liquid_2020} is a take on the Recurrent Neural Networks that is based on and inspired by biological neurons, specifically C. Elegens. It uses a process to solve a series of Ordinary Differential Equations (ODEs) to solve problems in a way that allows the neural network to act in a spiking fashion, as well as being transparent in how it is performing its actions. LTCNs tend to require fewer resources than their deeper cousins and work well with time series data, though they suffer from some of the same issues other RNNs suffer from, specifically vanishing gradients, especially with longer sequence data. Some solutions to these issues have been made, specifically Closed-form Continuous-time Neural nets \cite{CfC_LTC}, which seeks to reduce the number of Differential Equations down to 1 in an effort to better learn spatiotemporal tasks. Additionally, Liquid Structural State-Space Models (Liquid S4) were developed as an extension of the SSM in an effort to build a better performing model with spatiotemporal tasks \cite{hasani2022liquid}.
 
-        The main piece of the LTCN network is the use of ODE's, a system of equations, which depending on the implementation, could require an exponential number of discretized steps when simulated \cite{hasani_liquid_2020}. Instead, the paper that describes this model develops an ODE solver called a Fused Solver that fuses the explicit and implicit Euler methods. The Fused solver is defined by the following equation:
+        The main piece of the LTCN is the use of ODE's, a system of equations, which depending on the implementation, could require an exponential number of discretized steps when simulated \cite{hasani_liquid_2020}. Instead, the paper that describes this model develops an ODE solver called a Fused Solver that fuses the explicit and implicit Euler methods. The Fused solver is defined by the following equation:
 \begin{equation}
     x(t + \Delta t) = \frac{x(t) + \Delta t f(x(t), \textbf{I}(t), t, \theta)A}{1 + \Delta t(1/\tau _ f(x(t), \textbf{I}(t), t, \theta)}
 \end{equation}
 
         Where $\textbf{I}(t)$ is the M-dimensional input, $\theta$ is the set of parameters, $\tau$
-        is the time constant (this is "the parameter characteriziong the speed and the coupling sensitivity of an ODE" \cite{hasani_liquid_2020} the inverse of which is the membrane capacitance of our neuron \cite{LTCN_Tutorial}), $A$ is a bias vector, $x(t)$ is our hidden value (which could be cellularized for a more LSTM experience, or have an LSTM tacked on as was present in the official library implementation \cite{NCP_Github}), $\Delta t$ is the step size, generally defined as $1 / L$ where $L$ = the number of layers or iterations we will run for our ODE solver, and finally $f(.)$ is a non-linear function. In our implementation, which we derived in part from the official library \cite{NCP_Github} and the following step by step tutorial \cite{LTCN_Tutorial}, we added a way to switch up the nonlinearity beyond just a sigmoid or tanh, although most other nonlinearities did not train as well as the sigmoid or tanh.
+        is the time constant (this is "the parameter characteriziong the speed and the coupling sensitivity of an ODE" \cite{hasani_liquid_2020} the inverse of which is the membrane capacitance of our neuron \cite{LNN_Tutorial}), $A$ is a bias vector, $x(t)$ is our hidden value (which could be cellularized for a more LSTM experience, or have an LSTM tacked on as was present in the official library implementation \cite{NCP_Github}), $\Delta t$ is the step size, generally defined as $1 / L$ where $L$ = the number of layers or iterations we will run for our ODE solver, and finally $f(.)$ is a non-linear function. In our implementation, which we derived in part from the official library \cite{NCP_Github} and the following step by step tutorial \cite{LNN_Tutorial}, we added a way to switch up the nonlinearity beyond just a sigmoid or tanh, although most other nonlinearities did not train as well as the sigmoid or tanh.
 
 \subsection{Evaluation Metrics}
 Evaluation of classification performance focuses on True Positive (TP), True Negative (TN), and their false counterparts False Positive (FP) and False Negative (FN). The following classification based metrics were used to evaluate model performance:
@@ -232,13 +237,13 @@ Table~\ref{tab:general_results} contains the results we were able to achieve wit
 \hline
         \multicolumn{5}{|c|}{Accuracy, MCC} \\
 \hline
-        & ATNF & BIVI & CYCC & VTAK \\
+             & ATNF         & BIVI          & CYCC        & VTAK \\
 \hline
-        RNN & 0.378, .0837 & .511, .0768 & .543, .0782 & .276, .046 \\
+        IRNN & 0.465, .0405 & .4879, .0411  & .4718, -.001 & .2916, .0333 \\
 \hline
-        Transformer & .37, .0446 & .433, .0815 & .433, .0578 & .323, -.0668 \\
+        STT  & .3782, .026  & .354, -.0061 & .4091, -.0067 & .2751, -.0816 \\
 \hline
-        LTCN & .52, 0 & .504, 0 & .535, 0 & .496, 0 \\
+        LTCN & .5197, 0     & .5039, 0     & .5354, 0      & .4961, 0 \\
 \hline
 \end{tabular}%
     }
@@ -266,22 +271,6 @@ VTAK           & 0.496                      & 0.124                         & 0.
 \label{tab:testclassdistribution}
 \end{table}
 
-
-\begin{table}
-\begin{center}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{|c|c|c|c|}
-\hline
-\textbf{Model} & \textbf{Avg. Epoch Time} & \textbf{Avg. Train Time} & \textbf{Avg. Valid Time} \\ \hline
-RNN           & 0.1153                      & 0.1113                         & 0.2171                           \\ \hline
-Transformer   & 0.4647                      & 0.4574                         & 1.1957                           \\ \hline
-LTCN           & 3.3816                      & 3.3173                         & 3.2862                           \\ \hline
-\end{tabular}%
-}
-\end{center}
-\caption{Time in seconds of each models' Average Epoch, Training, and Validation performance}
-\label{tab:metrics}
-\end{table}
 
 \subsection{Shared Hyperparameters}
 
@@ -345,7 +334,7 @@ Sakae Watanabe & Implementation, Experimentation & Data \& feature engineering; 
 \hline
 Ashish Narasimham & Implementation, Paper Writing & Dataset sourcing; training code generalization; pre-training feature; RNN model build/tune; paper writing \\
 \hline
-Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LTCN model build/tune \\
+Michael Walker & Implementation, Experimentation & Refactor code and configuration for reusability; experiment setup; LTCN model build/tune; grammar fixes and minor text updates \\
 \hline
 \end{tabular}
     \end{center}
